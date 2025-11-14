@@ -91,29 +91,60 @@ async function initializeDatabase() {
     try {
         const fs = require('fs');
         const path = require('path');
-        const schemaPath = path.join(__dirname, './db/schema.sql');
+        
+        // Use PostgreSQL schema for PostgreSQL, SQLite schema for SQLite
+        const dbType = process.env.DB_TYPE || 'sqlite';
+        const schemaFile = dbType === 'postgresql' ? 'schema-postgresql.sql' : 'schema.sql';
+        const schemaPath = path.join(__dirname, './db', schemaFile);
+        
+        console.log(`Initializing database with schema: ${schemaFile}`);
+        
         const schema = fs.readFileSync(schemaPath, 'utf8');
         
+        // Split by semicolon and filter out comments and empty statements
         const statements = schema
             .split(';')
             .map(s => s.trim())
-            .filter(s => s.length > 0 && !s.startsWith('--'));
+            .filter(s => s.length > 0 && !s.startsWith('--') && !s.startsWith('/*'));
         
-        for (const statement of statements) {
+        // Execute statements in order
+        for (let i = 0; i < statements.length; i++) {
+            const statement = statements[i];
             try {
                 await db.query(statement);
+                console.log(`Executed statement ${i + 1}/${statements.length}`);
             } catch (err) {
                 // Ignore "already exists" errors and SSL certificate warnings
-                if (!err.message.includes('already exists') && 
-                    !err.message.includes('duplicate') &&
-                    !err.message.includes('self-signed certificate')) {
-                    console.warn('Schema initialization warning:', err.message);
+                if (err.message.includes('already exists') || 
+                    err.message.includes('duplicate') ||
+                    err.message.includes('self-signed certificate')) {
+                    // These are expected, ignore
+                } else {
+                    console.error(`Error executing statement ${i + 1}:`, err.message);
+                    console.error('Statement:', statement.substring(0, 100) + '...');
                 }
             }
         }
+        
+        // Insert default order sets if they don't exist
+        try {
+            const existingOrderSets = await db.query('SELECT COUNT(*) as count FROM order_sets');
+            if (existingOrderSets.rows[0]?.count === 0 || !existingOrderSets.rows[0]?.count) {
+                await db.query(
+                    `INSERT INTO order_sets (id, name, description, question_order, active)
+                     VALUES ('default', 'Default Order Set', 'Default question order', ARRAY[1,2,3,4,5,6,7,8], TRUE)
+                     ON CONFLICT (id) DO NOTHING`
+                );
+                console.log('Default order set inserted');
+            }
+        } catch (err) {
+            console.warn('Could not insert default order set:', err.message);
+        }
+        
         console.log('Database initialized successfully');
     } catch (error) {
         console.error('Database initialization error:', error);
+        throw error;
     }
 }
 
