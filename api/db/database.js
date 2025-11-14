@@ -22,18 +22,37 @@ if (dbType === 'postgresql') {
     if (process.env.DATABASE_URL) {
         // Use DATABASE_URL if provided (DigitalOcean standard)
         // In production, always enable SSL (DigitalOcean requires it)
-        // In development, only enable if URL contains sslmode or ondigitalocean.com
         const needsSSL = isProduction || 
                         process.env.DATABASE_URL.includes('ondigitalocean.com') || 
                         process.env.DATABASE_URL.includes('db.ondigitalocean.com') ||
                         process.env.DATABASE_URL.includes('sslmode');
         
-        db = new Pool({
-            connectionString: process.env.DATABASE_URL,
-            ssl: needsSSL ? sslConfig : false
-        });
+        // For production or DigitalOcean, always use SSL
+        // Parse connection string and ensure SSL is set
+        let connectionString = process.env.DATABASE_URL;
+        
+        // If connection string doesn't have sslmode, add it for production
+        if (needsSSL && !connectionString.includes('sslmode')) {
+            // Add sslmode=require to connection string if not present
+            const separator = connectionString.includes('?') ? '&' : '?';
+            connectionString = `${connectionString}${separator}sslmode=require`;
+        }
+        
+        const poolConfig = {
+            connectionString: connectionString
+        };
+        
+        // Always explicitly set SSL config for production/DigitalOcean
+        if (needsSSL) {
+            poolConfig.ssl = sslConfig;
+        }
+        
+        db = new Pool(poolConfig);
         
         console.log('PostgreSQL connection configured with SSL:', needsSSL ? 'enabled' : 'disabled');
+        console.log('DATABASE_URL present:', !!process.env.DATABASE_URL);
+        console.log('NODE_ENV:', process.env.NODE_ENV);
+        console.log('SSL config:', needsSSL ? JSON.stringify(sslConfig) : 'disabled');
     } else {
         // Fall back to individual connection parameters
         const isDigitalOcean = process.env.DB_HOST && 
