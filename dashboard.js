@@ -1,23 +1,18 @@
 // ============================================
-// ANALYTICS DASHBOARD
-// Visualizes chatbot analytics data
+// MODERN ANALYTICS DASHBOARD
+// Sleek, actionable insights
 // ============================================
 
 class AnalyticsDashboard {
     constructor() {
         // Get API endpoint from config or use default
-        // Priority: window.DASHBOARD_API_URL > auto-detect > localhost
         if (window.DASHBOARD_API_URL) {
             this.apiBaseUrl = window.DASHBOARD_API_URL;
         } else {
-            // Try to auto-detect: if on same domain, use same origin
-            // Otherwise default to localhost for development
             const hostname = window.location.hostname;
             if (hostname.includes('ondigitalocean.app') || hostname.includes('localhost')) {
-                // For DigitalOcean or localhost, try same origin first
                 this.apiBaseUrl = window.location.origin;
             } else {
-                // For other domains, default to localhost (development)
                 this.apiBaseUrl = 'http://localhost:3000';
             }
         }
@@ -25,8 +20,6 @@ class AnalyticsDashboard {
         this.dashboardApiUrl = `${this.apiBaseUrl}/api/dashboard`;
         this.timeRange = 30;
         this.charts = {};
-        
-        console.log('Dashboard API URL:', this.dashboardApiUrl);
         
         this.init();
     }
@@ -67,24 +60,16 @@ class AnalyticsDashboard {
                 this.fetchData('/completion-rates')
             ]);
             
-            this.renderOverviewStats(stats);
-            this.renderOrderSetStats(orderSets);
-            this.renderOrderSetChart(orderSets);
+            this.renderOverviewStats(stats, completionRates);
+            this.renderCriticalInsights(dropoffs, questions, stats);
+            this.renderOpportunityInsights(questions, dropoffs, stats);
             this.renderCompletionCharts(orderSets, completionRates);
-            this.renderDropoffChart(dropoffs);
-            this.renderDropoffTable(dropoffs);
+            this.renderTopDropoffs(dropoffs);
             this.renderQuestionPerformance(questions);
             
         } catch (error) {
             console.error('Error loading dashboard data:', error);
-            const errorMessage = error.message || 'Unknown error';
-            const detailedMessage = `Failed to load analytics data. Please check your API connection.<br><br>
-                <small style="font-size: 1.2rem; color: #666;">
-                    Error: ${errorMessage}<br>
-                    API URL: ${this.dashboardApiUrl}<br>
-                    Make sure CORS is enabled on your API server.
-                </small>`;
-            this.showError(detailedMessage);
+            this.showError(`Failed to load analytics data. Please check your API connection.`);
         } finally {
             this.hideLoading();
         }
@@ -92,138 +77,173 @@ class AnalyticsDashboard {
     
     async fetchData(endpoint) {
         const url = `${this.dashboardApiUrl}${endpoint}?days=${this.timeRange}`;
-        console.log('Fetching:', url);
         
         try {
             const response = await fetch(url, {
                 method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                mode: 'cors' // Explicitly set CORS mode
+                headers: { 'Content-Type': 'application/json' },
+                mode: 'cors'
             });
             
             if (!response.ok) {
                 const errorText = await response.text();
-                console.error(`HTTP error! status: ${response.status}`, errorText);
                 throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
             }
             
-            const data = await response.json();
-            console.log(`Successfully fetched ${endpoint}:`, data);
-            return data;
+            return await response.json();
         } catch (error) {
             console.error(`Error fetching ${endpoint}:`, error);
             throw error;
         }
     }
     
-    renderOverviewStats(stats) {
-        document.getElementById('totalSessions').textContent = stats.totalSessions || 0;
-        document.getElementById('avgCompletion').textContent = 
-            stats.avgCompletion ? `${stats.avgCompletion.toFixed(1)}%` : '0%';
-        document.getElementById('totalEvents').textContent = stats.totalEvents || 0;
-        document.getElementById('totalDropoffs').textContent = stats.totalDropoffs || 0;
+    renderOverviewStats(stats, completionRates) {
+        // Format numbers with commas
+        const formatNumber = (num) => (num || 0).toLocaleString();
+        
+        document.getElementById('totalSessions').textContent = formatNumber(stats.totalSessions || 0);
+        
+        const avgCompletion = stats.avgCompletion || 0;
+        document.getElementById('avgCompletion').textContent = `${avgCompletion.toFixed(1)}%`;
+        
+        // Completion breakdown
+        const total = (completionRates?.high || 0) + (completionRates?.medium || 0) + (completionRates?.low || 0);
+        if (total > 0) {
+            const highPct = ((completionRates.high / total) * 100).toFixed(0);
+            document.getElementById('completionBreakdown').textContent = `${highPct}% high completion`;
+        }
+        
+        // Dropoffs
+        const dropoffs = stats.totalDropoffs || 0;
+        const sessions = stats.totalSessions || 1;
+        const dropoffRate = (dropoffs / sessions * 100).toFixed(1);
+        document.getElementById('totalDropoffs').textContent = formatNumber(dropoffs);
+        document.getElementById('dropoffRate').textContent = `${dropoffRate}% drop-off rate`;
+        
+        // Average time
+        const avgTime = stats.avgTime || 0;
+        const avgTimeSeconds = Math.round(avgTime / 1000);
+        const avgTimeMinutes = Math.floor(avgTimeSeconds / 60);
+        const avgTimeSecs = avgTimeSeconds % 60;
+        const timeDisplay = avgTimeMinutes > 0 
+            ? `${avgTimeMinutes}m ${avgTimeSecs}s`
+            : `${avgTimeSecs}s`;
+        document.getElementById('avgTime').textContent = timeDisplay;
     }
     
-    renderOrderSetStats(orderSets) {
-        const container = document.getElementById('orderSetStats');
+    renderCriticalInsights(dropoffs, questions, stats) {
+        const container = document.getElementById('criticalInsights');
+        const insights = [];
         
-        if (!orderSets || orderSets.length === 0) {
-            container.innerHTML = '<p class="no-data">No order set data available</p>';
+        if (!dropoffs || dropoffs.length === 0) {
+            container.innerHTML = '<div class="insight-item"><span>No critical issues detected</span></div>';
             return;
         }
         
-        container.innerHTML = orderSets.map(set => {
-            const totalSessions = set.totalSessions || 0;
-            const highPct = totalSessions > 0 ? (set.highCompletionCount / totalSessions * 100).toFixed(1) : 0;
-            const mediumPct = totalSessions > 0 ? (set.mediumCompletionCount / totalSessions * 100).toFixed(1) : 0;
-            const lowPct = totalSessions > 0 ? (set.lowCompletionCount / totalSessions * 100).toFixed(1) : 0;
+        // Find highest drop-off question
+        const topDropoff = dropoffs[0];
+        if (topDropoff && topDropoff.dropoffCount > 0) {
+            insights.push({
+                icon: 'fas fa-exclamation-circle',
+                text: `Question ${topDropoff.questionIndex + 1} has the highest drop-off rate with <strong>${topDropoff.dropoffCount} drop-offs</strong> (${topDropoff.avgCompletionAtDropoff.toFixed(1)}% avg completion)`,
+                severity: 'high'
+            });
+        }
+        
+        // Find questions with low answer rates
+        if (questions && questions.length > 0) {
+            const lowAnswerRate = questions.filter(q => {
+                const rate = parseFloat(q.answerRate || 0);
+                return rate > 0 && rate < 50;
+            }).sort((a, b) => parseFloat(a.answerRate) - parseFloat(b.answerRate))[0];
             
-            return `
-                <div class="order-set-card">
-                    <h3 class="order-set-card__title">${set.name}</h3>
-                    <div class="order-set-card__stats">
-                        <div class="order-set-stat">
-                            <span class="order-set-stat__value">${totalSessions}</span>
-                            <span class="order-set-stat__label">Sessions</span>
-                        </div>
-                        <div class="order-set-stat">
-                            <span class="order-set-stat__value">${(set.avgCompletion || 0).toFixed(1)}%</span>
-                            <span class="order-set-stat__label">Avg Completion</span>
-                        </div>
-                    </div>
-                    <div class="completion-breakdown">
-                        <div class="completion-bar completion-bar--high" style="width: ${highPct}%" title="High (≥90%): ${set.highCompletionCount || 0}"></div>
-                        <div class="completion-bar completion-bar--medium" style="width: ${mediumPct}%" title="Medium (50-89%): ${set.mediumCompletionCount || 0}"></div>
-                        <div class="completion-bar completion-bar--low" style="width: ${lowPct}%" title="Low (<50%): ${set.lowCompletionCount || 0}"></div>
-                    </div>
-                    <div class="order-set-card__description">${set.description || ''}</div>
+            if (lowAnswerRate) {
+                insights.push({
+                    icon: 'fas fa-question-circle',
+                    text: `Question ${lowAnswerRate.questionIndex + 1} has low engagement: <strong>${parseFloat(lowAnswerRate.answerRate).toFixed(1)}% answer rate</strong>`,
+                    severity: 'medium'
+                });
+            }
+        }
+        
+        // Overall completion rate warning
+        const avgCompletion = stats.avgCompletion || 0;
+        if (avgCompletion < 50) {
+            insights.push({
+                icon: 'fas fa-chart-line-down',
+                text: `Overall completion rate is <strong>${avgCompletion.toFixed(1)}%</strong> - below target threshold`,
+                severity: 'high'
+            });
+        }
+        
+        if (insights.length === 0) {
+            container.innerHTML = '<div class="insight-item"><span>No critical issues detected</span></div>';
+        } else {
+            container.innerHTML = insights.map(insight => `
+                <div class="insight-item">
+                    <i class="${insight.icon}"></i>
+                    <span>${insight.text}</span>
                 </div>
-            `;
-        }).join('');
+            `).join('');
+        }
     }
     
-    renderOrderSetChart(orderSets) {
-        const ctx = document.getElementById('orderSetChart').getContext('2d');
+    renderOpportunityInsights(questions, dropoffs, stats) {
+        const container = document.getElementById('opportunityInsights');
+        const insights = [];
         
-        if (this.charts.orderSet) {
-            this.charts.orderSet.destroy();
+        // Find best performing questions
+        if (questions && questions.length > 0) {
+            const highPerformers = questions
+                .filter(q => parseFloat(q.answerRate || 0) >= 80)
+                .sort((a, b) => parseFloat(b.answerRate) - parseFloat(a.answerRate))
+                .slice(0, 2);
+            
+            highPerformers.forEach(q => {
+                insights.push({
+                    icon: 'fas fa-star',
+                    text: `Question ${q.questionIndex + 1} performs well: <strong>${parseFloat(q.answerRate).toFixed(1)}% answer rate</strong> - consider similar approach for other questions`,
+                    severity: 'positive'
+                });
+            });
         }
         
-        if (!orderSets || orderSets.length === 0) {
-            return;
+        // Completion rate opportunity
+        const avgCompletion = stats.avgCompletion || 0;
+        if (avgCompletion >= 70 && avgCompletion < 90) {
+            insights.push({
+                icon: 'fas fa-arrow-up',
+                text: `Completion rate is <strong>${avgCompletion.toFixed(1)}%</strong> - close to excellent. Focus on reducing drop-offs to reach 90%+`,
+                severity: 'positive'
+            });
         }
         
-        this.charts.orderSet = new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: orderSets.map(s => s.name),
-                datasets: [
-                    {
-                        label: 'Average Completion %',
-                        data: orderSets.map(s => parseFloat(s.avgCompletion || 0)),
-                        backgroundColor: 'rgba(2, 115, 197, 0.8)',
-                        borderColor: 'rgba(2, 115, 197, 1)',
-                        borderWidth: 1
-                    },
-                    {
-                        label: 'High Completion (≥90%)',
-                        data: orderSets.map(s => {
-                            const total = s.totalSessions || 1;
-                            return (s.highCompletionCount / total * 100) || 0;
-                        }),
-                        backgroundColor: 'rgba(74, 222, 128, 0.8)',
-                        borderColor: 'rgba(74, 222, 128, 1)',
-                        borderWidth: 1
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'top',
-                    },
-                    title: {
-                        display: true,
-                        text: 'Order Set Performance Comparison'
-                    }
-                },
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: 100,
-                        ticks: {
-                            callback: function(value) {
-                                return value + '%';
-                            }
-                        }
-                    }
-                }
-            }
-        });
+        // Low drop-off opportunity
+        const dropoffRate = stats.totalSessions > 0 
+            ? ((stats.totalDropoffs || 0) / stats.totalSessions * 100)
+            : 0;
+        if (dropoffRate < 20 && dropoffRate > 0) {
+            insights.push({
+                icon: 'fas fa-check-double',
+                text: `Drop-off rate is only <strong>${dropoffRate.toFixed(1)}%</strong> - excellent retention!`,
+                severity: 'positive'
+            });
+        }
+        
+        if (insights.length === 0) {
+            insights.push({
+                icon: 'fas fa-info-circle',
+                text: 'Continue monitoring for optimization opportunities',
+                severity: 'info'
+            });
+        }
+        
+        container.innerHTML = insights.map(insight => `
+            <div class="insight-item">
+                <i class="${insight.icon}"></i>
+                <span>${insight.text}</span>
+            </div>
+        `).join('');
     }
     
     renderCompletionCharts(orderSets, completionRates) {
@@ -238,30 +258,80 @@ class AnalyticsDashboard {
                 type: 'bar',
                 data: {
                     labels: orderSets.map(s => s.name),
-                    datasets: [{
-                        label: 'Average Completion %',
-                        data: orderSets.map(s => parseFloat(s.avgCompletion || 0)),
-                        backgroundColor: 'rgba(2, 115, 197, 0.8)',
-                        borderColor: 'rgba(2, 115, 197, 1)',
-                        borderWidth: 1
-                    }]
+                    datasets: [
+                        {
+                            label: 'High Completion (≥90%)',
+                            data: orderSets.map(s => {
+                                const total = s.totalSessions || 1;
+                                return (s.highCompletionCount / total * 100) || 0;
+                            }),
+                            backgroundColor: 'rgba(74, 222, 128, 0.9)',
+                            borderColor: 'rgba(74, 222, 128, 1)',
+                            borderWidth: 2,
+                            borderRadius: 6
+                        },
+                        {
+                            label: 'Medium Completion (50-89%)',
+                            data: orderSets.map(s => {
+                                const total = s.totalSessions || 1;
+                                return (s.mediumCompletionCount / total * 100) || 0;
+                            }),
+                            backgroundColor: 'rgba(234, 195, 68, 0.9)',
+                            borderColor: 'rgba(234, 195, 68, 1)',
+                            borderWidth: 2,
+                            borderRadius: 6
+                        },
+                        {
+                            label: 'Low Completion (<50%)',
+                            data: orderSets.map(s => {
+                                const total = s.totalSessions || 1;
+                                return (s.lowCompletionCount / total * 100) || 0;
+                            }),
+                            backgroundColor: 'rgba(239, 68, 68, 0.9)',
+                            borderColor: 'rgba(239, 68, 68, 1)',
+                            borderWidth: 2,
+                            borderRadius: 6
+                        }
+                    ]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
                         legend: {
-                            display: false
+                            position: 'top',
+                            labels: {
+                                font: { family: 'Poppins', size: 12 },
+                                padding: 15,
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 12,
+                            titleFont: { family: 'Poppins', size: 14, weight: '600' },
+                            bodyFont: { family: 'Poppins', size: 13 },
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}%`;
+                                }
+                            }
                         }
                     },
                     scales: {
+                        x: {
+                            stacked: true,
+                            grid: { display: false },
+                            ticks: { font: { family: 'Poppins', size: 12 } }
+                        },
                         y: {
+                            stacked: true,
                             beginAtZero: true,
                             max: 100,
+                            grid: { color: 'rgba(0, 0, 0, 0.05)' },
                             ticks: {
-                                callback: function(value) {
-                                    return value + '%';
-                                }
+                                callback: function(value) { return value + '%'; },
+                                font: { family: 'Poppins', size: 12 }
                             }
                         }
                     }
@@ -290,16 +360,12 @@ class AnalyticsDashboard {
                                 completionRates.low || 0
                             ],
                             backgroundColor: [
-                                'rgba(74, 222, 128, 0.8)',
-                                'rgba(234, 195, 68, 0.8)',
-                                'rgba(239, 68, 68, 0.8)'
+                                'rgba(74, 222, 128, 0.9)',
+                                'rgba(234, 195, 68, 0.9)',
+                                'rgba(239, 68, 68, 0.9)'
                             ],
-                            borderColor: [
-                                'rgba(74, 222, 128, 1)',
-                                'rgba(234, 195, 68, 1)',
-                                'rgba(239, 68, 68, 1)'
-                            ],
-                            borderWidth: 2
+                            borderColor: '#ffffff',
+                            borderWidth: 3
                         }]
                     },
                     options: {
@@ -307,13 +373,58 @@ class AnalyticsDashboard {
                         maintainAspectRatio: false,
                         plugins: {
                             legend: {
-                                position: 'bottom'
+                                position: 'bottom',
+                                labels: {
+                                    font: { family: 'Poppins', size: 11 },
+                                    padding: 12,
+                                    usePointStyle: true
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                padding: 12,
+                                callbacks: {
+                                    label: function(context) {
+                                        const label = context.label || '';
+                                        const value = context.parsed || 0;
+                                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                        const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                        return `${label}: ${value} (${percentage}%)`;
+                                    }
+                                }
                             }
                         }
                     }
                 });
             }
         }
+    }
+    
+    renderTopDropoffs(dropoffs) {
+        const container = document.getElementById('topDropoffs');
+        
+        if (!dropoffs || dropoffs.length === 0) {
+            container.innerHTML = '<div class="no-data">No drop-off data available</div>';
+            return;
+        }
+        
+        // Show top 5 drop-offs
+        const top5 = dropoffs.slice(0, 5);
+        
+        container.innerHTML = top5.map(stat => `
+            <div class="dropoff-item">
+                <div class="dropoff-item__header">
+                    <span class="dropoff-item__question">
+                        <span class="dropoff-item__index">Q${(stat.questionIndex || 0) + 1}</span>
+                        Question ${stat.questionId || 'N/A'}
+                    </span>
+                    <span class="dropoff-item__count">${stat.dropoffCount || 0}</span>
+                </div>
+                <div class="dropoff-item__details">
+                    Avg completion: ${(stat.avgCompletionAtDropoff || 0).toFixed(1)}% at drop-off
+                </div>
+            </div>
+        `).join('');
     }
     
     renderDropoffChart(dropoffs) {
@@ -327,19 +438,19 @@ class AnalyticsDashboard {
             return;
         }
         
-        // Group by order set
+        // Group by order set and sort by question index
         const grouped = {};
         dropoffs.forEach(stat => {
-            const key = stat.orderSetId || 'unknown';
+            const key = stat.orderSetId || 'default';
             if (!grouped[key]) {
                 grouped[key] = [];
             }
             grouped[key].push(stat);
         });
         
-        // Sort by question index
+        // Sort each group by question index
         Object.keys(grouped).forEach(key => {
-            grouped[key].sort((a, b) => a.questionIndex - b.questionIndex);
+            grouped[key].sort((a, b) => (a.questionIndex || 0) - (b.questionIndex || 0));
         });
         
         const datasets = Object.keys(grouped).map((orderSetId, index) => {
@@ -347,31 +458,45 @@ class AnalyticsDashboard {
             return {
                 label: `Order Set: ${orderSetId}`,
                 data: data.map(d => ({
-                    x: d.questionIndex,
-                    y: d.dropoffCount
+                    x: d.questionIndex || 0,
+                    y: d.dropoffCount || 0
                 })),
                 borderColor: this.getColor(index),
                 backgroundColor: this.getColor(index, 0.1),
+                borderWidth: 3,
                 tension: 0.4,
-                fill: false
+                fill: false,
+                pointRadius: 5,
+                pointHoverRadius: 7
             };
         });
         
         this.charts.dropoff = new Chart(ctx, {
             type: 'line',
-            data: {
-                datasets: datasets
-            },
+            data: { datasets: datasets },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        position: 'top'
+                        position: 'top',
+                        labels: {
+                            font: { family: 'Poppins', size: 12 },
+                            padding: 15,
+                            usePointStyle: true
+                        }
                     },
-                    title: {
-                        display: true,
-                        text: 'Drop-offs by Question Index'
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        callbacks: {
+                            title: function(context) {
+                                return `Question ${context[0].raw.x + 1}`;
+                            },
+                            label: function(context) {
+                                return `Drop-offs: ${context.parsed.y}`;
+                            }
+                        }
                     }
                 },
                 scales: {
@@ -379,52 +504,44 @@ class AnalyticsDashboard {
                         type: 'linear',
                         title: {
                             display: true,
-                            text: 'Question Index'
+                            text: 'Question Number',
+                            font: { family: 'Poppins', size: 13, weight: '600' }
+                        },
+                        grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                        ticks: {
+                            stepSize: 1,
+                            font: { family: 'Poppins', size: 11 }
                         }
                     },
                     y: {
                         title: {
                             display: true,
-                            text: 'Drop-off Count'
+                            text: 'Drop-off Count',
+                            font: { family: 'Poppins', size: 13, weight: '600' }
                         },
-                        beginAtZero: true
+                        beginAtZero: true,
+                        grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                        ticks: {
+                            font: { family: 'Poppins', size: 11 }
+                        }
                     }
                 }
             }
         });
     }
     
-    renderDropoffTable(dropoffs) {
-        const tbody = document.querySelector('#dropoffTable tbody');
-        
-        if (!dropoffs || dropoffs.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" class="no-data">No drop-off data available</td></tr>';
-            return;
-        }
-        
-        tbody.innerHTML = dropoffs.slice(0, 20).map(stat => `
-            <tr>
-                <td>${stat.orderSetId || 'N/A'}</td>
-                <td>Question ${stat.questionId || 'N/A'}</td>
-                <td>${stat.questionIndex !== null ? stat.questionIndex : 'N/A'}</td>
-                <td>${stat.dropoffCount || 0}</td>
-                <td>${(stat.avgCompletionAtDropoff || 0).toFixed(1)}%</td>
-            </tr>
-        `).join('');
-    }
-    
     renderQuestionPerformance(questions) {
         const container = document.getElementById('questionPerformance');
         
         if (!questions || questions.length === 0) {
-            container.innerHTML = '<p class="no-data">No question performance data available</p>';
+            container.innerHTML = '<div class="no-data">No question performance data available</div>';
             return;
         }
         
         // Group by order set
         const grouped = {};
         questions.forEach(q => {
-            const key = q.orderSetId || 'unknown';
+            const key = q.orderSetId || 'default';
             if (!grouped[key]) {
                 grouped[key] = [];
             }
@@ -432,41 +549,43 @@ class AnalyticsDashboard {
         });
         
         container.innerHTML = Object.keys(grouped).map(orderSetId => {
-            const questions = grouped[orderSetId].sort((a, b) => a.questionIndex - b.questionIndex);
+            const questionList = grouped[orderSetId].sort((a, b) => (a.questionIndex || 0) - (b.questionIndex || 0));
             
-            return `
-                <div class="question-performance-card">
-                    <h3 class="question-performance-card__title">Order Set: ${orderSetId}</h3>
-                    <div class="question-performance-list">
-                        ${questions.map(q => `
-                            <div class="question-performance-item">
-                                <div class="question-performance-item__header">
-                                    <span class="question-performance-item__index">Q${q.questionIndex + 1}</span>
-                                    <span class="question-performance-item__id">Question ${q.questionId}</span>
-                                </div>
-                                <div class="question-performance-item__stats">
-                                    <div class="question-stat">
-                                        <span class="question-stat__label">Started:</span>
-                                        <span class="question-stat__value">${q.startedCount || 0}</span>
-                                    </div>
-                                    <div class="question-stat">
-                                        <span class="question-stat__label">Answered:</span>
-                                        <span class="question-stat__value">${q.answeredCount || 0}</span>
-                                    </div>
-                                    <div class="question-stat">
-                                        <span class="question-stat__label">Answer Rate:</span>
-                                        <span class="question-stat__value">${q.answerRate || 0}%</span>
-                                    </div>
-                                    <div class="question-stat">
-                                        <span class="question-stat__label">Avg Time:</span>
-                                        <span class="question-stat__value">${q.avgTimeToAnswer ? (q.avgTimeToAnswer / 1000).toFixed(1) + 's' : 'N/A'}</span>
-                                    </div>
+            return questionList.map(q => {
+                const answerRate = parseFloat(q.answerRate || 0);
+                const rateClass = answerRate >= 80 ? 'high' : answerRate >= 50 ? 'medium' : 'low';
+                const avgTime = q.avgTimeToAnswer ? (q.avgTimeToAnswer / 1000).toFixed(1) + 's' : 'N/A';
+                
+                return `
+                    <div class="question-card">
+                        <div class="question-card__header">
+                            <div class="question-card__badge">Q${(q.questionIndex || 0) + 1}</div>
+                            <div class="question-card__title">Question ${q.questionId}</div>
+                        </div>
+                        <div class="question-card__stats">
+                            <div class="question-stat">
+                                <div class="question-stat__value">${q.startedCount || 0}</div>
+                                <div class="question-stat__label">Started</div>
+                            </div>
+                            <div class="question-stat">
+                                <div class="question-stat__value">${q.answeredCount || 0}</div>
+                                <div class="question-stat__label">Answered</div>
+                                <div class="question-stat__rate question-stat__rate--${rateClass}">
+                                    ${answerRate.toFixed(1)}%
                                 </div>
                             </div>
-                        `).join('')}
+                            <div class="question-stat">
+                                <div class="question-stat__value">${avgTime}</div>
+                                <div class="question-stat__label">Avg Time</div>
+                            </div>
+                            <div class="question-stat">
+                                <div class="question-stat__value">${q.orderSetId || 'N/A'}</div>
+                                <div class="question-stat__label">Order Set</div>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            `;
+                `;
+            }).join('');
         }).join('');
     }
     
@@ -483,14 +602,14 @@ class AnalyticsDashboard {
     }
     
     showError(message) {
-        const container = document.querySelector('.dashboard-content');
+        const container = document.querySelector('.dashboard-main');
         container.innerHTML = `
             <div class="error-message">
                 <i class="fas fa-exclamation-circle"></i>
-                <div style="text-align: left; max-width: 60rem; margin: 0 auto;">
-                    ${message}
-                </div>
-                <button onclick="location.reload()" class="retry-btn">Retry</button>
+                <p>${message}</p>
+                <button onclick="location.reload()" class="nav-btn" style="margin-top: 2rem;">
+                    <i class="fas fa-redo"></i> Retry
+                </button>
             </div>
         `;
     }
@@ -500,4 +619,3 @@ class AnalyticsDashboard {
 document.addEventListener('DOMContentLoaded', () => {
     new AnalyticsDashboard();
 });
-

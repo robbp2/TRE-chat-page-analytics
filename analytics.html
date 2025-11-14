@@ -3,148 +3,183 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chat Analytics Dashboard - Tax Relief Experts</title>
+    <title>Analytics Dashboard - Tax Relief Experts</title>
     <link rel="stylesheet" href="libs/fonts/poppins/poppins.css">
     <link rel="stylesheet" href="libs/fontawesome/css/all.min.css">
     <link rel="stylesheet" href="dashboard.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
-    <div class="dashboard-container">
-        <header class="dashboard-header">
-            <div class="dashboard-header__content">
-                <h1 class="dashboard-header__title">
-                    <i class="fas fa-chart-line"></i>
-                    Chat Analytics Dashboard
-                </h1>
-                <div class="dashboard-controls">
-                    <select id="timeRange" class="time-range-select">
-                        <option value="7">Last 7 days</option>
-                        <option value="30" selected>Last 30 days</option>
-                        <option value="90">Last 90 days</option>
-                        <option value="365">Last year</option>
+    <div class="dashboard-wrapper">
+        <!-- Top Navigation Bar -->
+        <nav class="dashboard-nav">
+            <div class="nav-content">
+                <div class="nav-brand">
+                    <i class="fas fa-chart-pie"></i>
+                    <span>Analytics</span>
+                </div>
+                <div class="nav-actions">
+                    <select id="timeRange" class="nav-select">
+                        <option value="7">7 Days</option>
+                        <option value="30" selected>30 Days</option>
+                        <option value="90">90 Days</option>
+                        <option value="365">1 Year</option>
                     </select>
-                    <button id="refreshBtn" class="refresh-btn">
-                        <i class="fas fa-sync-alt"></i> Refresh
+                    <button id="refreshBtn" class="nav-btn">
+                        <i class="fas fa-sync-alt"></i>
                     </button>
                 </div>
             </div>
-        </header>
-        
-        <div class="dashboard-content">
-            <!-- Overview Stats -->
-            <section class="dashboard-section">
-                <h2 class="dashboard-section__title">Overview</h2>
-                <div class="stats-grid" id="overviewStats">
-                    <div class="stat-card">
-                        <div class="stat-card__icon stat-card__icon--sessions">
-                            <i class="fas fa-users"></i>
-                        </div>
-                        <div class="stat-card__content">
-                            <div class="stat-card__value" id="totalSessions">-</div>
-                            <div class="stat-card__label">Total Sessions</div>
+        </nav>
+
+        <!-- Main Dashboard Content -->
+        <main class="dashboard-main">
+            <!-- Key Metrics Row -->
+            <section class="metrics-row">
+                <div class="metric-card metric-card--primary">
+                    <div class="metric-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="metric-content">
+                        <div class="metric-value" id="totalSessions">0</div>
+                        <div class="metric-label">Total Sessions</div>
+                    </div>
+                </div>
+                
+                <div class="metric-card metric-card--success">
+                    <div class="metric-icon">
+                        <i class="fas fa-check-circle"></i>
+                    </div>
+                    <div class="metric-content">
+                        <div class="metric-value" id="avgCompletion">0%</div>
+                        <div class="metric-label">Completion Rate</div>
+                        <div class="metric-subtext" id="completionBreakdown"></div>
+                    </div>
+                </div>
+                
+                <div class="metric-card metric-card--warning">
+                    <div class="metric-icon">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </div>
+                    <div class="metric-content">
+                        <div class="metric-value" id="totalDropoffs">0</div>
+                        <div class="metric-label">Drop-offs</div>
+                        <div class="metric-subtext" id="dropoffRate">0% drop-off rate</div>
+                    </div>
+                </div>
+                
+                <div class="metric-card metric-card--info">
+                    <div class="metric-icon">
+                        <i class="fas fa-clock"></i>
+                    </div>
+                    <div class="metric-content">
+                        <div class="metric-value" id="avgTime">0s</div>
+                        <div class="metric-label">Avg Time</div>
+                        <div class="metric-subtext">Per session</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Insights & Actions -->
+            <section class="insights-section">
+                <div class="insight-card insight-card--critical">
+                    <div class="insight-header">
+                        <i class="fas fa-fire"></i>
+                        <h3>Critical Issues</h3>
+                    </div>
+                    <div class="insight-content" id="criticalInsights">
+                        <div class="insight-item">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <span>Analyzing data...</span>
                         </div>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-card__icon stat-card__icon--completion">
-                            <i class="fas fa-check-circle"></i>
-                        </div>
-                        <div class="stat-card__content">
-                            <div class="stat-card__value" id="avgCompletion">-</div>
-                            <div class="stat-card__label">Avg Completion</div>
-                        </div>
+                </div>
+                
+                <div class="insight-card insight-card--opportunity">
+                    <div class="insight-header">
+                        <i class="fas fa-lightbulb"></i>
+                        <h3>Quick Wins</h3>
                     </div>
-                    <div class="stat-card">
-                        <div class="stat-card__icon stat-card__icon--events">
-                            <i class="fas fa-list"></i>
-                        </div>
-                        <div class="stat-card__content">
-                            <div class="stat-card__value" id="totalEvents">-</div>
-                            <div class="stat-card__label">Total Events</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-card__icon stat-card__icon--dropoffs">
-                            <i class="fas fa-exclamation-triangle"></i>
-                        </div>
-                        <div class="stat-card__content">
-                            <div class="stat-card__value" id="totalDropoffs">-</div>
-                            <div class="stat-card__label">Drop-offs</div>
+                    <div class="insight-content" id="opportunityInsights">
+                        <div class="insight-item">
+                            <i class="fas fa-spinner fa-spin"></i>
+                            <span>Analyzing data...</span>
                         </div>
                     </div>
                 </div>
             </section>
-            
-            <!-- Order Set Performance -->
-            <section class="dashboard-section">
-                <h2 class="dashboard-section__title">Order Set Performance</h2>
-                <div class="chart-container">
-                    <canvas id="orderSetChart"></canvas>
+
+            <!-- Performance Overview -->
+            <section class="performance-section">
+                <div class="section-header">
+                    <h2>Performance Overview</h2>
+                    <p class="section-subtitle">Completion rates and engagement metrics</p>
                 </div>
-                <div class="order-set-grid" id="orderSetStats">
-                    <!-- Dynamically populated -->
+                <div class="chart-grid">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <h3>Completion Rate</h3>
+                            <div class="chart-legend">
+                                <span class="legend-item"><span class="legend-color" style="background: #4ade80;"></span> High (≥90%)</span>
+                                <span class="legend-item"><span class="legend-color" style="background: #eac344;"></span> Medium (50-89%)</span>
+                                <span class="legend-item"><span class="legend-color" style="background: #ef4444;"></span> Low (<50%)</span>
+                            </div>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="completionChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="chart-card chart-card--compact">
+                        <div class="chart-header">
+                            <h3>Distribution</h3>
+                        </div>
+                        <div class="chart-wrapper chart-wrapper--small">
+                            <canvas id="completionPieChart"></canvas>
+                        </div>
+                    </div>
                 </div>
             </section>
-            
-            <!-- Completion Rate Analysis -->
-            <section class="dashboard-section">
-                <h2 class="dashboard-section__title">Completion Rate Breakdown</h2>
-                <div class="completion-grid">
-                    <div class="chart-container chart-container--half">
-                        <canvas id="completionChart"></canvas>
-                    </div>
-                    <div class="chart-container chart-container--half">
-                        <canvas id="completionPieChart"></canvas>
-                    </div>
-                </div>
-            </section>
-            
+
             <!-- Drop-off Analysis -->
-            <section class="dashboard-section">
-                <h2 class="dashboard-section__title">Drop-off Analysis</h2>
-                <div class="chart-container">
-                    <canvas id="dropoffChart"></canvas>
+            <section class="dropoff-section">
+                <div class="section-header">
+                    <h2>Drop-off Analysis</h2>
+                    <p class="section-subtitle">Identify where users abandon the flow</p>
                 </div>
-                <div class="data-table-container">
-                    <table class="data-table" id="dropoffTable">
-                        <thead>
-                            <tr>
-                                <th>Order Set</th>
-                                <th>Question</th>
-                                <th>Question Index</th>
-                                <th>Drop-off Count</th>
-                                <th>Avg Completion at Drop-off</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Dynamically populated -->
-                        </tbody>
-                    </table>
+                <div class="dropoff-content">
+                    <div class="dropoff-chart-card">
+                        <canvas id="dropoffChart"></canvas>
+                    </div>
+                    <div class="dropoff-list" id="topDropoffs">
+                        <!-- Dynamically populated -->
+                    </div>
                 </div>
             </section>
-            
+
             <!-- Question Performance -->
-            <section class="dashboard-section">
-                <h2 class="dashboard-section__title">Question Performance</h2>
-                <div class="question-performance-grid" id="questionPerformance">
+            <section class="questions-section">
+                <div class="section-header">
+                    <h2>Question Performance</h2>
+                    <p class="section-subtitle">Answer rates and response times</p>
+                </div>
+                <div class="questions-grid" id="questionPerformance">
                     <!-- Dynamically populated -->
                 </div>
             </section>
-        </div>
+        </main>
     </div>
     
     <div class="loading-overlay" id="loadingOverlay">
-        <div class="loading-spinner">
-            <i class="fas fa-spinner fa-spin"></i>
-            <p>Loading analytics data...</p>
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p>Loading analytics...</p>
         </div>
     </div>
+    
     <script>
-        // Configure API URL
         window.DASHBOARD_API_URL = 'https://tre-chatbot-analytics-api-x2aka.ondigitalocean.app';
-        console.log('Dashboard API URL configured:', window.DASHBOARD_API_URL);
     </script>
     <script src="dashboard.js"></script>
 </body>
 </html>
-
