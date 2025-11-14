@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS questions (
 -- Chat Sessions
 CREATE TABLE IF NOT EXISTS chat_sessions (
     id VARCHAR(255) PRIMARY KEY,
-    order_set_id VARCHAR(50) REFERENCES order_sets(id),
+    order_set_id VARCHAR(50) REFERENCES order_sets(id) ON DELETE SET NULL,
     user_info JSONB,
     start_time TIMESTAMP,
     end_time TIMESTAMP,

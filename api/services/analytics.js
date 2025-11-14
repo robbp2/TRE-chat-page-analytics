@@ -32,6 +32,35 @@ class AnalyticsService {
     }
     
     async handleOrderSetSelected(sessionId, timestamp, data) {
+        // Ensure order set exists (create if it doesn't)
+        if (data.orderSetId) {
+            try {
+                const existingOrderSet = await db.query(
+                    `SELECT id FROM order_sets WHERE id = ?`,
+                    [data.orderSetId]
+                );
+                
+                if (existingOrderSet.rows.length === 0) {
+                    // Create order set if it doesn't exist
+                    await db.query(
+                        `INSERT INTO order_sets (id, name, description, question_order, active, created_at)
+                         VALUES (?, ?, ?, ?, ?, ?)
+                         ON CONFLICT (id) DO NOTHING`,
+                        [
+                            data.orderSetId,
+                            data.orderSetName || `Order Set ${data.orderSetId}`,
+                            data.description || null,
+                            data.questionOrder ? JSON.stringify(data.questionOrder) : null,
+                            true,
+                            timestamp
+                        ]
+                    );
+                }
+            } catch (err) {
+                console.warn('Could not ensure order set exists:', err.message);
+            }
+        }
+        
         // Create or update session
         const userInfoJson = JSON.stringify(data.userInfo || {});
         
@@ -42,20 +71,47 @@ class AnalyticsService {
         );
         
         if (existing.rows.length > 0) {
-            // Update existing session
-            await db.query(
-                `UPDATE chat_sessions 
-                 SET order_set_id = ?, user_info = ?, start_time = ?
-                 WHERE id = ?`,
-                [data.orderSetId, userInfoJson, timestamp, sessionId]
-            );
+            // Update existing session (set order_set_id to null if it doesn't exist)
+            try {
+                await db.query(
+                    `UPDATE chat_sessions 
+                     SET order_set_id = ?, user_info = ?, start_time = ?
+                     WHERE id = ?`,
+                    [data.orderSetId || null, userInfoJson, timestamp, sessionId]
+                );
+            } catch (err) {
+                // If foreign key constraint fails, set to null
+                if (err.code === '23503') {
+                    await db.query(
+                        `UPDATE chat_sessions 
+                         SET order_set_id = NULL, user_info = ?, start_time = ?
+                         WHERE id = ?`,
+                        [userInfoJson, timestamp, sessionId]
+                    );
+                } else {
+                    throw err;
+                }
+            }
         } else {
-            // Insert new session
-            await db.query(
-                `INSERT INTO chat_sessions (id, order_set_id, user_info, start_time, created_at)
-                 VALUES (?, ?, ?, ?, ?)`,
-                [sessionId, data.orderSetId, userInfoJson, timestamp, timestamp]
-            );
+            // Insert new session (set order_set_id to null if it doesn't exist)
+            try {
+                await db.query(
+                    `INSERT INTO chat_sessions (id, order_set_id, user_info, start_time, created_at)
+                     VALUES (?, ?, ?, ?, ?)`,
+                    [sessionId, data.orderSetId || null, userInfoJson, timestamp, timestamp]
+                );
+            } catch (err) {
+                // If foreign key constraint fails, insert with null order_set_id
+                if (err.code === '23503') {
+                    await db.query(
+                        `INSERT INTO chat_sessions (id, order_set_id, user_info, start_time, created_at)
+                         VALUES (?, NULL, ?, ?, ?)`,
+                        [sessionId, userInfoJson, timestamp, timestamp]
+                    );
+                } else {
+                    throw err;
+                }
+            }
         }
         
         return { success: true };
@@ -70,19 +126,38 @@ class AnalyticsService {
             );
             
             if (existingSession.rows.length === 0) {
-                // Create session if it doesn't exist
-                await db.query(
-                    `INSERT INTO chat_sessions (id, order_set_id, user_info, start_time, created_at)
-                     VALUES (?, ?, ?, ?, ?)
-                     ON CONFLICT (id) DO NOTHING`,
-                    [
-                        sessionId,
-                        data.orderSetId || null,
-                        JSON.stringify({}),
-                        timestamp,
-                        timestamp
-                    ]
-                );
+                // Create session if it doesn't exist (handle foreign key constraint)
+                try {
+                    await db.query(
+                        `INSERT INTO chat_sessions (id, order_set_id, user_info, start_time, created_at)
+                         VALUES (?, ?, ?, ?, ?)
+                         ON CONFLICT (id) DO NOTHING`,
+                        [
+                            sessionId,
+                            data.orderSetId || null,
+                            JSON.stringify({}),
+                            timestamp,
+                            timestamp
+                        ]
+                    );
+                } catch (err) {
+                    // If foreign key constraint fails, insert with null order_set_id
+                    if (err.code === '23503') {
+                        await db.query(
+                            `INSERT INTO chat_sessions (id, order_set_id, user_info, start_time, created_at)
+                             VALUES (?, NULL, ?, ?, ?)
+                             ON CONFLICT (id) DO NOTHING`,
+                            [
+                                sessionId,
+                                JSON.stringify({}),
+                                timestamp,
+                                timestamp
+                            ]
+                        );
+                    } else {
+                        throw err;
+                    }
+                }
             }
         } catch (err) {
             // If session creation fails, log but continue
@@ -117,18 +192,37 @@ class AnalyticsService {
             );
             
             if (existingSession.rows.length === 0) {
-                await db.query(
-                    `INSERT INTO chat_sessions (id, order_set_id, user_info, start_time, created_at)
-                     VALUES (?, ?, ?, ?, ?)
-                     ON CONFLICT (id) DO NOTHING`,
-                    [
-                        sessionId,
-                        data.orderSetId || null,
-                        JSON.stringify({}),
-                        timestamp,
-                        timestamp
-                    ]
-                );
+                try {
+                    await db.query(
+                        `INSERT INTO chat_sessions (id, order_set_id, user_info, start_time, created_at)
+                         VALUES (?, ?, ?, ?, ?)
+                         ON CONFLICT (id) DO NOTHING`,
+                        [
+                            sessionId,
+                            data.orderSetId || null,
+                            JSON.stringify({}),
+                            timestamp,
+                            timestamp
+                        ]
+                    );
+                } catch (err) {
+                    // If foreign key constraint fails, insert with null order_set_id
+                    if (err.code === '23503') {
+                        await db.query(
+                            `INSERT INTO chat_sessions (id, order_set_id, user_info, start_time, created_at)
+                             VALUES (?, NULL, ?, ?, ?)
+                             ON CONFLICT (id) DO NOTHING`,
+                            [
+                                sessionId,
+                                JSON.stringify({}),
+                                timestamp,
+                                timestamp
+                            ]
+                        );
+                    } else {
+                        throw err;
+                    }
+                }
             }
         } catch (err) {
             console.warn('Could not ensure session exists:', err.message);
