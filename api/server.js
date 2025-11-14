@@ -15,10 +15,32 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // Middleware
-app.use(cors({
-    origin: process.env.CORS_ORIGIN === '*' ? '*' : (process.env.CORS_ORIGIN || '*').split(','),
-    credentials: true
-}));
+const corsOptions = {
+    origin: function (origin, callback) {
+        // Allow requests with no origin (like mobile apps, curl requests, or file:// protocol)
+        if (!origin) return callback(null, true);
+        
+        // Allow file:// protocol for local development
+        if (origin === 'null' || origin.startsWith('file://')) {
+            return callback(null, true);
+        }
+        
+        const allowedOrigins = process.env.CORS_ORIGIN === '*' 
+            ? '*' 
+            : (process.env.CORS_ORIGIN || '*').split(',').map(o => o.trim());
+        
+        if (allowedOrigins === '*' || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            callback(null, true); // Allow all for now, can restrict later
+        }
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
