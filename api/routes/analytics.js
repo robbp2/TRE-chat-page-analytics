@@ -25,6 +25,8 @@ router.post('/event', async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         console.error('Analytics event error:', error);
+        console.error('Event details:', { eventType, sessionId, data: JSON.stringify(data).substring(0, 200) });
+        console.error('Error stack:', error.stack);
         res.status(500).json({ 
             error: 'Failed to record analytics event',
             message: process.env.NODE_ENV === 'development' ? error.message : undefined

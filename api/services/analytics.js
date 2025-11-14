@@ -62,6 +62,34 @@ class AnalyticsService {
     }
     
     async handleQuestionStarted(sessionId, timestamp, data) {
+        // Ensure session exists first (create if it doesn't)
+        try {
+            const existingSession = await db.query(
+                `SELECT id FROM chat_sessions WHERE id = ?`,
+                [sessionId]
+            );
+            
+            if (existingSession.rows.length === 0) {
+                // Create session if it doesn't exist
+                await db.query(
+                    `INSERT INTO chat_sessions (id, order_set_id, user_info, start_time, created_at)
+                     VALUES (?, ?, ?, ?, ?)
+                     ON CONFLICT (id) DO NOTHING`,
+                    [
+                        sessionId,
+                        data.orderSetId || null,
+                        JSON.stringify({}),
+                        timestamp,
+                        timestamp
+                    ]
+                );
+            }
+        } catch (err) {
+            // If session creation fails, log but continue
+            console.warn('Could not ensure session exists:', err.message);
+        }
+        
+        // Insert question event
         await db.query(
             `INSERT INTO question_events 
              (session_id, order_set_id, question_id, question_index, event_type, timestamp, created_at)
@@ -81,6 +109,32 @@ class AnalyticsService {
     }
     
     async handleQuestionAnswered(sessionId, timestamp, data) {
+        // Ensure session exists first
+        try {
+            const existingSession = await db.query(
+                `SELECT id FROM chat_sessions WHERE id = ?`,
+                [sessionId]
+            );
+            
+            if (existingSession.rows.length === 0) {
+                await db.query(
+                    `INSERT INTO chat_sessions (id, order_set_id, user_info, start_time, created_at)
+                     VALUES (?, ?, ?, ?, ?)
+                     ON CONFLICT (id) DO NOTHING`,
+                    [
+                        sessionId,
+                        data.orderSetId || null,
+                        JSON.stringify({}),
+                        timestamp,
+                        timestamp
+                    ]
+                );
+            }
+        } catch (err) {
+            console.warn('Could not ensure session exists:', err.message);
+        }
+        
+        // Insert question event
         await db.query(
             `INSERT INTO question_events 
              (session_id, order_set_id, question_id, question_index, event_type, answer, time_to_answer_ms, timestamp, created_at)
