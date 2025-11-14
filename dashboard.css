@@ -49,6 +49,7 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    width: 100%;
 }
 
 /* Navigation Bar */
@@ -60,14 +61,55 @@ body {
     top: 0;
     z-index: 100;
     box-shadow: var(--shadow-sm);
+    width: 100%;
 }
 
 .nav-content {
-    max-width: 160rem;
+    max-width: 95%;
+    width: 100%;
     margin: 0 auto;
     display: flex;
     justify-content: space-between;
     align-items: center;
+}
+
+/* Responsive nav width to match main content */
+@media (min-width: 1200px) {
+    .nav-content {
+        max-width: 60%;
+    }
+}
+
+@media (min-width: 1600px) {
+    .nav-content {
+        max-width: 55%;
+    }
+}
+
+@media (min-width: 1920px) {
+    .nav-content {
+        max-width: 50%;
+    }
+}
+
+@media (max-width: 1199px) {
+    .nav-content {
+        max-width: 75%;
+    }
+}
+
+@media (max-width: 768px) {
+    .nav-content {
+        max-width: 95%;
+        padding: 0 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .nav-content {
+        max-width: 100%;
+        padding: 0 1rem;
+    }
 }
 
 .nav-brand {
@@ -134,10 +176,49 @@ body {
 /* Main Content */
 .dashboard-main {
     flex: 1;
-    max-width: 160rem;
     margin: 0 auto;
     padding: 2rem;
     width: 100%;
+    max-width: 95%;
+}
+
+/* Responsive width constraints - smaller screens use more width, larger screens use less */
+@media (min-width: 1200px) {
+    .dashboard-main {
+        max-width: 60%;
+    }
+}
+
+@media (min-width: 1600px) {
+    .dashboard-main {
+        max-width: 55%;
+    }
+}
+
+@media (min-width: 1920px) {
+    .dashboard-main {
+        max-width: 50%;
+    }
+}
+
+@media (max-width: 1199px) {
+    .dashboard-main {
+        max-width: 75%;
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-main {
+        max-width: 95%;
+        padding: 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .dashboard-main {
+        max-width: 100%;
+        padding: 1rem;
+    }
 }
 
 /* Metrics Row */
