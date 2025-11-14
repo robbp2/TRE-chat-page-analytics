@@ -102,26 +102,46 @@ async function initializeDatabase() {
         const schema = fs.readFileSync(schemaPath, 'utf8');
         
         // Split by semicolon and filter out comments and empty statements
-        const statements = schema
+        // Handle multi-line statements and comments properly
+        let cleanedSchema = schema
+            .split('\n')
+            .map(line => {
+                // Remove inline comments
+                const commentIndex = line.indexOf('--');
+                if (commentIndex >= 0) {
+                    return line.substring(0, commentIndex);
+                }
+                return line;
+            })
+            .join('\n');
+        
+        const statements = cleanedSchema
             .split(';')
             .map(s => s.trim())
             .filter(s => s.length > 0 && !s.startsWith('--') && !s.startsWith('/*'));
         
+        console.log(`Found ${statements.length} SQL statements to execute`);
+        
         // Execute statements in order
         for (let i = 0; i < statements.length; i++) {
             const statement = statements[i];
+            if (!statement || statement.length < 10) {
+                continue; // Skip very short statements (likely empty)
+            }
+            
             try {
                 await db.query(statement);
-                console.log(`Executed statement ${i + 1}/${statements.length}`);
+                console.log(`✓ Executed statement ${i + 1}/${statements.length}: ${statement.substring(0, 50).replace(/\s+/g, ' ')}...`);
             } catch (err) {
-                // Ignore "already exists" errors and SSL certificate warnings
+                // Ignore "already exists" errors
                 if (err.message.includes('already exists') || 
-                    err.message.includes('duplicate') ||
-                    err.message.includes('self-signed certificate')) {
-                    // These are expected, ignore
+                    err.message.includes('duplicate key') ||
+                    err.message.includes('relation') && err.message.includes('already exists')) {
+                    console.log(`⚠ Statement ${i + 1} skipped (already exists): ${statement.substring(0, 50).replace(/\s+/g, ' ')}...`);
                 } else {
-                    console.error(`Error executing statement ${i + 1}:`, err.message);
-                    console.error('Statement:', statement.substring(0, 100) + '...');
+                    console.error(`✗ Error executing statement ${i + 1}:`, err.message);
+                    console.error('Full statement:', statement);
+                    // Don't throw - continue with other statements
                 }
             }
         }
