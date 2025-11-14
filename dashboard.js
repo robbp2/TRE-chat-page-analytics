@@ -691,25 +691,24 @@ class AnalyticsDashboard {
         
         const dropoffItems = [];
         
-        // Create drop-off analysis between steps
+        // Create drop-off analysis for ALL transitions between steps
         for (let i = 1; i < funnelData.steps.length; i++) {
             const currentStep = funnelData.steps[i];
             const previousStep = funnelData.steps[i - 1];
             
-            if (currentStep.dropoff > 0) {
-                dropoffItems.push({
-                    from: previousStep.label,
-                    to: currentStep.label,
-                    fromUsers: previousStep.users,
-                    toUsers: currentStep.users,
-                    dropoff: currentStep.dropoff,
-                    dropoffPercent: currentStep.dropoffPercent
-                });
-            }
+            // Show all transitions, even if dropoff is 0
+            dropoffItems.push({
+                from: previousStep.label,
+                to: currentStep.label,
+                fromUsers: previousStep.users,
+                toUsers: currentStep.users,
+                dropoff: currentStep.dropoff || 0,
+                dropoffPercent: currentStep.dropoffPercent || 0
+            });
         }
         
         if (dropoffItems.length === 0) {
-            container.innerHTML = '<div class="no-dropoffs">No drop-offs detected</div>';
+            container.innerHTML = '<div class="no-dropoffs">No transition data available</div>';
             return;
         }
         
@@ -719,21 +718,29 @@ class AnalyticsDashboard {
                 <p class="funnel-dropoffs-subtitle">Percentage of users leaving at each step</p>
             </div>
             <div class="funnel-dropoffs-list">
-                ${dropoffItems.map(item => `
-                    <div class="funnel-dropoff-item">
-                        <div class="funnel-dropoff-item__transition">
-                            <span class="funnel-dropoff-item__from">${item.from}</span>
-                            <i class="fas fa-arrow-right"></i>
-                            <span class="funnel-dropoff-item__to">${item.to}</span>
+                ${dropoffItems.map(item => {
+                    const hasDropoff = item.dropoffPercent > 0;
+                    const severityClass = item.dropoffPercent > 50 ? 'funnel-dropoff-item__percent--high' : 
+                                        item.dropoffPercent > 20 ? 'funnel-dropoff-item__percent--medium' : 
+                                        item.dropoffPercent > 0 ? 'funnel-dropoff-item__percent--low' : '';
+                    const borderClass = hasDropoff ? 'funnel-dropoff-item--has-dropoff' : 'funnel-dropoff-item--no-dropoff';
+                    
+                    return `
+                        <div class="funnel-dropoff-item ${borderClass}">
+                            <div class="funnel-dropoff-item__transition">
+                                <span class="funnel-dropoff-item__from">${item.from}</span>
+                                <i class="fas fa-arrow-right"></i>
+                                <span class="funnel-dropoff-item__to">${item.to}</span>
+                            </div>
+                            <div class="funnel-dropoff-item__stats">
+                                <span class="funnel-dropoff-item__users">${item.fromUsers} → ${item.toUsers} users</span>
+                                <span class="funnel-dropoff-item__percent ${severityClass}">
+                                    ${item.dropoffPercent > 0 ? `${item.dropoffPercent.toFixed(1)}% drop-off` : '0.0% drop-off'}
+                                </span>
+                            </div>
                         </div>
-                        <div class="funnel-dropoff-item__stats">
-                            <span class="funnel-dropoff-item__users">${item.fromUsers} → ${item.toUsers} users</span>
-                            <span class="funnel-dropoff-item__percent ${item.dropoffPercent > 50 ? 'funnel-dropoff-item__percent--high' : item.dropoffPercent > 20 ? 'funnel-dropoff-item__percent--medium' : ''}">
-                                ${item.dropoffPercent.toFixed(1)}% drop-off
-                            </span>
-                        </div>
-                    </div>
-                `).join('')}
+                    `;
+                }).join('')}
             </div>
         `;
     }

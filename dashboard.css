@@ -643,8 +643,16 @@ body {
     padding: 1.5rem;
     background: var(--bg-secondary);
     border-radius: 0.8rem;
-    border-left: 4px solid var(--error-red);
+    border-left: 4px solid var(--border-medium);
     transition: all 0.2s ease;
+}
+
+.funnel-dropoff-item--has-dropoff {
+    border-left-color: var(--error-red);
+}
+
+.funnel-dropoff-item--no-dropoff {
+    border-left-color: var(--success-green);
 }
 
 .funnel-dropoff-item:hover {
@@ -683,10 +691,13 @@ body {
 .funnel-dropoff-item__percent {
     font-size: 1.4rem;
     font-weight: 700;
-    color: var(--error-red);
     padding: 0.4rem 1rem;
-    background: rgba(239, 68, 68, 0.1);
     border-radius: 0.4rem;
+}
+
+.funnel-dropoff-item__percent--low {
+    color: var(--success-green);
+    background: rgba(74, 222, 128, 0.1);
 }
 
 .funnel-dropoff-item__percent--medium {
