@@ -11,30 +11,44 @@ if (dbType === 'postgresql') {
     // PostgreSQL connection
     const { Pool } = require('pg');
     
+    // DigitalOcean managed databases require SSL with self-signed certificates
+    // We need to accept self-signed certificates for DigitalOcean
+    const sslConfig = {
+        rejectUnauthorized: false  // Accept self-signed certificates (required for DigitalOcean)
+    };
+    
     // DigitalOcean provides DATABASE_URL, but we can also use individual variables
     if (process.env.DATABASE_URL) {
         // Use DATABASE_URL if provided (DigitalOcean standard)
+        // Check if it's a DigitalOcean database (requires SSL)
+        const isDigitalOcean = process.env.DATABASE_URL.includes('ondigitalocean.com') || 
+                              process.env.DATABASE_URL.includes('db.ondigitalocean.com');
+        
         db = new Pool({
             connectionString: process.env.DATABASE_URL,
-            ssl: process.env.DATABASE_URL.includes('ondigitalocean.com') ? { rejectUnauthorized: false } : false
+            ssl: isDigitalOcean ? sslConfig : false
         });
     } else {
         // Fall back to individual connection parameters
+        const isDigitalOcean = process.env.DB_HOST && 
+                              (process.env.DB_HOST.includes('ondigitalocean.com') || 
+                               process.env.DB_HOST.includes('db.ondigitalocean.com'));
+        
         db = new Pool({
             host: process.env.DB_HOST || 'localhost',
             port: process.env.DB_PORT || 5432,
             database: process.env.DB_NAME || 'tre_chatbot',
             user: process.env.DB_USER,
             password: process.env.DB_PASSWORD,
-            ssl: process.env.DB_HOST && process.env.DB_HOST.includes('ondigitalocean.com') 
-                ? { rejectUnauthorized: false } 
-                : false
+            ssl: isDigitalOcean ? sslConfig : false
         });
     }
     
     db.on('error', (err) => {
         console.error('PostgreSQL connection error:', err);
     });
+    
+    console.log('PostgreSQL connection configured with SSL:', process.env.DATABASE_URL ? 'using DATABASE_URL' : 'using individual params');
 } else {
     // SQLite connection (default)
     const sqlite3 = require('sqlite3').verbose();

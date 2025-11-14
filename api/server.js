@@ -81,8 +81,10 @@ async function initializeDatabase() {
             try {
                 await db.query(statement);
             } catch (err) {
-                // Ignore "already exists" errors
-                if (!err.message.includes('already exists') && !err.message.includes('duplicate')) {
+                // Ignore "already exists" errors and SSL certificate warnings
+                if (!err.message.includes('already exists') && 
+                    !err.message.includes('duplicate') &&
+                    !err.message.includes('self-signed certificate')) {
                     console.warn('Schema initialization warning:', err.message);
                 }
             }
