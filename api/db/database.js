@@ -12,7 +12,8 @@ if (dbType === 'postgresql') {
     const { Pool } = require('pg');
     
     // DigitalOcean managed databases require SSL with self-signed certificates
-    // We need to accept self-signed certificates for DigitalOcean
+    // In production (DigitalOcean), always use SSL with rejectUnauthorized: false
+    const isProduction = process.env.NODE_ENV === 'production';
     const sslConfig = {
         rejectUnauthorized: false  // Accept self-signed certificates (required for DigitalOcean)
     };
@@ -20,13 +21,12 @@ if (dbType === 'postgresql') {
     // DigitalOcean provides DATABASE_URL, but we can also use individual variables
     if (process.env.DATABASE_URL) {
         // Use DATABASE_URL if provided (DigitalOcean standard)
-        // DigitalOcean databases always require SSL
-        const isDigitalOcean = process.env.DATABASE_URL.includes('ondigitalocean.com') || 
-                              process.env.DATABASE_URL.includes('db.ondigitalocean.com') ||
-                              process.env.DATABASE_URL.includes('${'); // Also check for variable references
-        
-        // Always use SSL for DigitalOcean, or if DATABASE_URL contains sslmode
-        const needsSSL = isDigitalOcean || process.env.DATABASE_URL.includes('sslmode');
+        // In production, always enable SSL (DigitalOcean requires it)
+        // In development, only enable if URL contains sslmode or ondigitalocean.com
+        const needsSSL = isProduction || 
+                        process.env.DATABASE_URL.includes('ondigitalocean.com') || 
+                        process.env.DATABASE_URL.includes('db.ondigitalocean.com') ||
+                        process.env.DATABASE_URL.includes('sslmode');
         
         db = new Pool({
             connectionString: process.env.DATABASE_URL,
@@ -40,16 +40,19 @@ if (dbType === 'postgresql') {
                               (process.env.DB_HOST.includes('ondigitalocean.com') || 
                                process.env.DB_HOST.includes('db.ondigitalocean.com'));
         
+        // In production, always use SSL
+        const needsSSL = isProduction || isDigitalOcean;
+        
         db = new Pool({
             host: process.env.DB_HOST || 'localhost',
             port: process.env.DB_PORT || 5432,
             database: process.env.DB_NAME || 'tre_chatbot',
             user: process.env.DB_USER,
             password: process.env.DB_PASSWORD,
-            ssl: isDigitalOcean ? sslConfig : false
+            ssl: needsSSL ? sslConfig : false
         });
         
-        console.log('PostgreSQL connection configured with SSL:', isDigitalOcean ? 'enabled' : 'disabled');
+        console.log('PostgreSQL connection configured with SSL:', needsSSL ? 'enabled' : 'disabled');
     }
     
     db.on('error', (err) => {
