@@ -1,0 +1,34 @@
+name: tre-chatbot-analytics-api
+region: nyc
+services:
+  - name: api
+    github:
+      repo: your-username/your-repo-name
+      branch: main
+      deploy_on_push: true
+    source_dir: api
+    build_command: npm install
+    run_command: npm start
+    environment_slug: node-js
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    envs:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "8080"
+        scope: RUN_TIME
+      - key: DB_TYPE
+        value: sqlite
+      - key: DB_PATH
+        value: /tmp/analytics.db
+      - key: CORS_ORIGIN
+        value: "*"
+    health_check:
+      http_path: /health
+      initial_delay_seconds: 10
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
+

@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tax Relief Experts - Live Chat</title>
+    <link rel="stylesheet" href="libs/fonts/poppins/poppins.css">
+    <link rel="stylesheet" href="libs/fontawesome/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="questions.config.js"></script>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header__content flex-block flex-block--row flex-block--aic flex-block--jcsb">
+            <div class="header__logo-container flex-block flex-block--aic">
+                <a href="https://taxreliefexperts.com" class="header__logo" aria-label="Tax Relief Experts"></a>
+            </div>
+            <div class="header__ctc-container">
+                <span class="header__ctc-text">Call Now</span>
+                <a href="tel:+18001234567" class="header__ctc-link">1-800-123-4567</a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Hero Section with Chat -->
+        <section class="chat-hero">
+            <div class="container">
+                <div class="chat-hero__content">
+                    <div class="chat-hero__text">
+                        <h1 class="chat-hero__title">
+                            Get Instant Help with Your <span class="chat-hero__text-highlight">Tax Relief</span>
+                        </h1>
+                        <p class="chat-hero__description">
+                            Our tax experts are standing by to help you resolve your tax debt. Start a conversation below.
+                        </p>
+                    </div>
+                    
+                    <!-- Chat Window -->
+                    <div class="chat-window">
+                        <div class="chat-window__header">
+                            <div class="chat-window__agent-info flex-block flex-block--row flex-block--aic">
+                                <div class="chat-window__agent-avatar">
+                                    <i class="fas fa-user-circle"></i>
+                                </div>
+                                <div class="chat-window__agent-details">
+                                    <div class="chat-window__agent-name">Sarah Johnson</div>
+                                    <div class="chat-window__agent-status">
+                                        <span class="status-indicator status-indicator--online"></span>
+                                        <span class="status-text">Online</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="chat-window__messages" id="chatMessages">
+                            <!-- Messages will be dynamically added here -->
+                        </div>
+                        
+                        <div class="chat-window__typing-indicator" id="typingIndicator">
+                            <div class="typing-dots">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                            <span class="typing-text">Sarah is typing...</span>
+                        </div>
+                        
+                        <div class="chat-window__input-area">
+                            <div class="chat-input-wrapper">
+                                <textarea 
+                                    id="chatInput" 
+                                    class="chat-input" 
+                                    placeholder="Type your message here..."
+                                    autocomplete="off"
+                                    rows="1"
+                                ></textarea>
+                                <button class="chat-send-btn" id="sendBtn" aria-label="Send message">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section class="debt-features">
+            <div class="container">
+                <h2 class="debt-features__title">Why Choose Tax Relief Experts?</h2>
+                <ul class="debt-features__list flex-block flex-block--row flex-block--wrap flex-block--jcc">
+                    <li class="debt-features__list-item">
+                        <div class="debt-features__list-item-content">
+                            <div class="debt-features__icon">
+                                <i class="fas fa-dollar-sign"></i>
+                            </div>
+                            <h3 class="debt-features__item-title">Reduce Your Tax Debt</h3>
+                            <p class="debt-features__item-text">We help negotiate settlements to reduce what you owe.</p>
+                        </div>
+                    </li>
+                    <li class="debt-features__list-item">
+                        <div class="debt-features__list-item-content">
+                            <div class="debt-features__icon">
+                                <i class="fas fa-chart-line"></i>
+                            </div>
+                            <h3 class="debt-features__item-title">May Reduce Penalties & Interest</h3>
+                            <p class="debt-features__item-text">Work with us to potentially lower penalties and interest charges.</p>
+                        </div>
+                    </li>
+                    <li class="debt-features__list-item">
+                        <div class="debt-features__list-item-content">
+                            <div class="debt-features__icon">
+                                <i class="fas fa-shield-alt"></i>
+                            </div>
+                            <h3 class="debt-features__item-title">Audit Defense</h3>
+                            <p class="debt-features__item-text">Expert representation if you're facing an IRS audit.</p>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer__content">
+                <div class="footer__disclaimer">
+                    <p>Tax Relief Experts provides tax resolution services. Results may vary. Not available in all states. Consult with a tax professional for personalized advice.</p>
+                </div>
+                <div class="footer__links flex-block flex-block--row flex-block--wrap flex-block--jcsb">
+                    <div class="footer-block">
+                        <a href="#" class="footer-block__link">Privacy Policy</a>
+                        <span class="footer-separator">|</span>
+                        <a href="#" class="footer-block__link">Terms & Conditions</a>
+                        <span class="footer-separator">|</span>
+                        <a href="#" class="footer-block__link">CA Privacy Notice</a>
+                    </div>
+                    <div class="footer-block">
+                        <p class="footer__copyright">&copy; 2025 Tax Relief Experts. All rights reserved.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- 
+        API Configuration (optional):
+        Set your API endpoint before loading chat.js:
+        
+        <script>
+            window.API_ENDPOINT = 'https://your-api-endpoint.com/chat/submit';
+            // window.API_ENABLED = false; // Set to false to disable API
+        </script>
+    -->
+    <script src="chat.js"></script>
+</body>
+</html>
+
