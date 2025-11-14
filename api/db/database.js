@@ -27,22 +27,21 @@ if (dbType === 'postgresql') {
                         process.env.DATABASE_URL.includes('db.ondigitalocean.com') ||
                         process.env.DATABASE_URL.includes('sslmode');
         
-        // For production or DigitalOcean, always use SSL
-        // Parse connection string and ensure SSL is set
-        let connectionString = process.env.DATABASE_URL;
+        // Parse the connection string to extract components
+        // This allows us to set SSL config properly
+        const url = require('url');
+        const dbUrl = new URL(process.env.DATABASE_URL);
         
-        // If connection string doesn't have sslmode, add it for production
-        if (needsSSL && !connectionString.includes('sslmode')) {
-            // Add sslmode=require to connection string if not present
-            const separator = connectionString.includes('?') ? '&' : '?';
-            connectionString = `${connectionString}${separator}sslmode=require`;
-        }
-        
+        // Build pool config from parsed URL
         const poolConfig = {
-            connectionString: connectionString
+            host: dbUrl.hostname,
+            port: parseInt(dbUrl.port) || 5432,
+            database: dbUrl.pathname.slice(1), // Remove leading /
+            user: dbUrl.username,
+            password: dbUrl.password,
         };
         
-        // Always explicitly set SSL config for production/DigitalOcean
+        // Always set SSL for production/DigitalOcean
         if (needsSSL) {
             poolConfig.ssl = sslConfig;
         }
@@ -53,6 +52,7 @@ if (dbType === 'postgresql') {
         console.log('DATABASE_URL present:', !!process.env.DATABASE_URL);
         console.log('NODE_ENV:', process.env.NODE_ENV);
         console.log('SSL config:', needsSSL ? JSON.stringify(sslConfig) : 'disabled');
+        console.log('Host:', poolConfig.host);
     } else {
         // Fall back to individual connection parameters
         const isDigitalOcean = process.env.DB_HOST && 
