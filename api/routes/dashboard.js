@@ -16,7 +16,11 @@ router.get('/stats', async (req, res) => {
         res.json(stats);
     } catch (error) {
         console.error('Dashboard stats error:', error);
-        res.status(500).json({ error: 'Failed to fetch dashboard stats' });
+        console.error('Error stack:', error.stack);
+        res.status(500).json({ 
+            error: 'Failed to fetch dashboard stats',
+            message: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
     }
 });
 

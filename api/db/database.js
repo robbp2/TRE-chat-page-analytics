@@ -86,9 +86,19 @@ class Database {
     async query(sql, params = []) {
         if (this.type === 'postgresql') {
             try {
-                const result = await this.db.query(sql, params);
+                // Convert SQLite-style ? placeholders to PostgreSQL $1, $2, etc.
+                let pgSql = sql;
+                if (params.length > 0 && sql.includes('?')) {
+                    let paramIndex = 1;
+                    pgSql = sql.replace(/\?/g, () => `$${paramIndex++}`);
+                }
+                
+                const result = await this.db.query(pgSql, params);
                 return { rows: result.rows, rowCount: result.rowCount };
             } catch (error) {
+                console.error('PostgreSQL query error:', error);
+                console.error('SQL:', sql);
+                console.error('Params:', params);
                 throw error;
             }
         } else {
