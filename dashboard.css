@@ -484,7 +484,7 @@ body {
     margin-right: 0.5rem;
 }
 
-/* Questions Section - Waterfall */
+/* Questions Section - Funnel */
 .questions-section {
     margin-bottom: 3rem;
 }
@@ -492,65 +492,229 @@ body {
 .waterfall-container {
     display: flex;
     flex-direction: column;
-    gap: 3rem;
-}
-
-.waterfall-card {
-    background: var(--bg-primary);
-    border-radius: 1.2rem;
-    padding: 2.5rem;
-    box-shadow: var(--shadow-md);
-    border: 1px solid var(--border-light);
-}
-
-.waterfall-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2.5rem;
-    padding-bottom: 2rem;
-    border-bottom: 2px solid var(--border-light);
-    flex-wrap: wrap;
     gap: 2rem;
 }
 
-.waterfall-header h3 {
+.funnel-card {
+    background: var(--bg-primary);
+    border-radius: 1.2rem;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--border-light);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.funnel-card--collapsed .funnel-content {
+    display: none;
+}
+
+.funnel-card--collapsed .funnel-toggle i {
+    transform: rotate(-90deg);
+}
+
+.funnel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 2rem 2.5rem;
+    border-bottom: 2px solid var(--border-light);
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.funnel-header:hover {
+    background: var(--bg-secondary);
+}
+
+.funnel-header__left {
+    flex: 1;
+}
+
+.funnel-header h3 {
     font-size: 2rem;
     font-weight: 700;
     color: var(--text-primary);
+    margin-bottom: 1rem;
 }
 
-.waterfall-stats {
+.funnel-header__stats {
     display: flex;
-    gap: 3rem;
+    gap: 2rem;
     flex-wrap: wrap;
 }
 
-.waterfall-stat {
-    display: flex;
+.funnel-stat-badge {
+    display: inline-flex;
     flex-direction: column;
-    align-items: center;
-    text-align: center;
+    padding: 0.8rem 1.5rem;
+    background: var(--bg-secondary);
+    border-radius: 0.6rem;
+    border: 1px solid var(--border-light);
 }
 
-.waterfall-stat__value {
-    font-size: 2.4rem;
+.funnel-stat-badge--rate {
+    background: linear-gradient(135deg, rgba(2, 115, 197, 0.1) 0%, rgba(2, 115, 197, 0.05) 100%);
+    border-color: var(--primary-blue);
+}
+
+.funnel-stat-badge__value {
+    font-size: 1.8rem;
     font-weight: 700;
     color: var(--primary-blue);
     line-height: 1;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.3rem;
 }
 
-.waterfall-stat__label {
-    font-size: 1.2rem;
+.funnel-stat-badge__label {
+    font-size: 1.1rem;
     color: var(--text-secondary);
     font-weight: 500;
 }
 
-.waterfall-chart-wrapper {
+.funnel-toggle {
+    width: 4rem;
+    height: 4rem;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
+    transition: all 0.2s ease;
+    border-radius: 0.5rem;
+}
+
+.funnel-toggle:hover {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+}
+
+.funnel-toggle i {
+    transition: transform 0.3s ease;
+}
+
+.funnel-content {
+    padding: 2.5rem;
+}
+
+.funnel-visualization {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 3rem;
+}
+
+.funnel-chart-wrapper {
     position: relative;
-    height: 45rem;
-    margin-top: 1rem;
+    height: 40rem;
+}
+
+.funnel-dropoffs {
+    display: flex;
+    flex-direction: column;
+}
+
+.funnel-dropoffs-header {
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 2px solid var(--border-light);
+}
+
+.funnel-dropoffs-header h4 {
+    font-size: 1.8rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.funnel-dropoffs-subtitle {
+    font-size: 1.3rem;
+    color: var(--text-secondary);
+}
+
+.funnel-dropoffs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.funnel-dropoff-item {
+    padding: 1.5rem;
+    background: var(--bg-secondary);
+    border-radius: 0.8rem;
+    border-left: 4px solid var(--error-red);
+    transition: all 0.2s ease;
+}
+
+.funnel-dropoff-item:hover {
+    background: var(--bg-tertiary);
+    transform: translateX(4px);
+}
+
+.funnel-dropoff-item__transition {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    font-size: 1.4rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.funnel-dropoff-item__transition i {
+    color: var(--text-muted);
+    font-size: 1.2rem;
+}
+
+.funnel-dropoff-item__stats {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.funnel-dropoff-item__users {
+    font-size: 1.3rem;
+    color: var(--text-secondary);
+}
+
+.funnel-dropoff-item__percent {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--error-red);
+    padding: 0.4rem 1rem;
+    background: rgba(239, 68, 68, 0.1);
+    border-radius: 0.4rem;
+}
+
+.funnel-dropoff-item__percent--medium {
+    color: var(--warning-yellow);
+    background: rgba(234, 195, 68, 0.1);
+}
+
+.funnel-dropoff-item__percent--high {
+    color: var(--error-red);
+    background: rgba(239, 68, 68, 0.15);
+    font-weight: 800;
+}
+
+.no-dropoffs {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: var(--text-muted);
+    font-size: 1.4rem;
+    font-style: italic;
+    background: var(--bg-secondary);
+    border-radius: 0.8rem;
+    border: 2px dashed var(--border-medium);
+}
+
+@media (max-width: 1200px) {
+    .funnel-visualization {
+        grid-template-columns: 1fr;
+    }
 }
 
 /* Loading Overlay */

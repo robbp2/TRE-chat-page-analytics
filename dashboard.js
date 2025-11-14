@@ -65,6 +65,7 @@ class AnalyticsDashboard {
             this.renderOpportunityInsights(questions, dropoffs, stats);
             this.renderCompletionCharts(orderSets, completionRates);
             this.renderTopDropoffs(dropoffs);
+            this.renderDropoffChart(dropoffs, questions, stats);
             this.renderQuestionPerformance(questions);
             
         } catch (error) {
@@ -427,102 +428,115 @@ class AnalyticsDashboard {
         `).join('');
     }
     
-    renderDropoffChart(dropoffs) {
-        const ctx = document.getElementById('dropoffChart').getContext('2d');
+    renderDropoffChart(dropoffs, questions, stats) {
+        const ctx = document.getElementById('dropoffChart');
+        if (!ctx) return;
+        
+        const ctx2d = ctx.getContext('2d');
         
         if (this.charts.dropoff) {
             this.charts.dropoff.destroy();
         }
         
         if (!dropoffs || dropoffs.length === 0) {
+            // Show a message if no drop-off data
             return;
         }
         
-        // Group by order set and sort by question index
-        const grouped = {};
+        // Create a funnel-style visualization showing drop-off points
+        // Group drop-offs by question index to show total drop-offs per question
+        const dropoffByQuestion = {};
         dropoffs.forEach(stat => {
-            const key = stat.orderSetId || 'default';
-            if (!grouped[key]) {
-                grouped[key] = [];
+            const qIndex = stat.questionIndex || 0;
+            if (!dropoffByQuestion[qIndex]) {
+                dropoffByQuestion[qIndex] = {
+                    questionIndex: qIndex,
+                    questionId: stat.questionId,
+                    dropoffCount: 0,
+                    totalCompletion: 0,
+                    count: 0
+                };
             }
-            grouped[key].push(stat);
+            dropoffByQuestion[qIndex].dropoffCount += stat.dropoffCount || 0;
+            dropoffByQuestion[qIndex].totalCompletion += (stat.avgCompletionAtDropoff || 0) * (stat.dropoffCount || 0);
+            dropoffByQuestion[qIndex].count += stat.dropoffCount || 0;
         });
         
-        // Sort each group by question index
-        Object.keys(grouped).forEach(key => {
-            grouped[key].sort((a, b) => (a.questionIndex || 0) - (b.questionIndex || 0));
+        // Calculate average completion for each question
+        Object.keys(dropoffByQuestion).forEach(key => {
+            const item = dropoffByQuestion[key];
+            item.avgCompletion = item.count > 0 ? item.totalCompletion / item.count : 0;
         });
         
-        const datasets = Object.keys(grouped).map((orderSetId, index) => {
-            const data = grouped[orderSetId];
-            return {
-                label: `Order Set: ${orderSetId}`,
-                data: data.map(d => ({
-                    x: d.questionIndex || 0,
-                    y: d.dropoffCount || 0
-                })),
-                borderColor: this.getColor(index),
-                backgroundColor: this.getColor(index, 0.1),
-                borderWidth: 3,
-                tension: 0.4,
-                fill: false,
-                pointRadius: 5,
-                pointHoverRadius: 7
-            };
-        });
+        // Sort by question index
+        const sortedDropoffs = Object.values(dropoffByQuestion)
+            .sort((a, b) => a.questionIndex - b.questionIndex);
         
-        this.charts.dropoff = new Chart(ctx, {
-            type: 'line',
-            data: { datasets: datasets },
+        if (sortedDropoffs.length === 0) {
+            return;
+        }
+        
+        const labels = sortedDropoffs.map(d => `Q${d.questionIndex + 1}`);
+        const dropoffCounts = sortedDropoffs.map(d => d.dropoffCount);
+        
+        this.charts.dropoff = new Chart(ctx2d, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Drop-offs',
+                    data: dropoffCounts,
+                    backgroundColor: 'rgba(239, 68, 68, 0.9)',
+                    borderColor: 'rgba(239, 68, 68, 1)',
+                    borderWidth: 2,
+                    borderRadius: 6
+                }]
+            },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        position: 'top',
-                        labels: {
-                            font: { family: 'Poppins', size: 12 },
-                            padding: 15,
-                            usePointStyle: true
-                        }
+                        display: false
                     },
                     tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        backgroundColor: 'rgba(0, 0, 0, 0.85)',
                         padding: 12,
                         callbacks: {
                             title: function(context) {
-                                return `Question ${context[0].raw.x + 1}`;
+                                const index = context[0].dataIndex;
+                                const item = sortedDropoffs[index];
+                                return `Question ${item.questionIndex + 1}`;
                             },
                             label: function(context) {
-                                return `Drop-offs: ${context.parsed.y}`;
+                                const index = context.dataIndex;
+                                const item = sortedDropoffs[index];
+                                return [
+                                    `Drop-offs: ${item.dropoffCount}`,
+                                    `Avg completion: ${item.avgCompletion.toFixed(1)}%`
+                                ];
                             }
                         }
                     }
                 },
                 scales: {
                     x: {
-                        type: 'linear',
-                        title: {
-                            display: true,
-                            text: 'Question Number',
-                            font: { family: 'Poppins', size: 13, weight: '600' }
-                        },
-                        grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                        grid: { display: false },
                         ticks: {
-                            stepSize: 1,
-                            font: { family: 'Poppins', size: 11 }
+                            font: { family: 'Poppins', size: 12, weight: '600' }
                         }
                     },
                     y: {
-                        title: {
-                            display: true,
-                            text: 'Drop-off Count',
-                            font: { family: 'Poppins', size: 13, weight: '600' }
-                        },
                         beginAtZero: true,
                         grid: { color: 'rgba(0, 0, 0, 0.05)' },
                         ticks: {
-                            font: { family: 'Poppins', size: 11 }
+                            font: { family: 'Poppins', size: 11 },
+                            stepSize: 1
+                        },
+                        title: {
+                            display: true,
+                            text: 'Number of Drop-offs',
+                            font: { family: 'Poppins', size: 13, weight: '600' }
                         }
                     }
                 }
@@ -548,102 +562,183 @@ class AnalyticsDashboard {
             grouped[key].push(q);
         });
         
-        // Clear container and create waterfall for each order set
+        // Clear container and create funnel for each order set
         container.innerHTML = '';
         
         Object.keys(grouped).forEach((orderSetId, setIndex) => {
             const questionList = grouped[orderSetId].sort((a, b) => (a.questionIndex || 0) - (b.questionIndex || 0));
             
-            // Calculate waterfall data
-            const waterfallData = this.calculateWaterfallData(questionList);
+            // Calculate funnel data
+            const funnelData = this.calculateFunnelData(questionList);
             
-            // Create waterfall chart container
-            const waterfallCard = document.createElement('div');
-            waterfallCard.className = 'waterfall-card';
-            waterfallCard.innerHTML = `
-                <div class="waterfall-header">
-                    <h3>Order Set: ${orderSetId}</h3>
-                    <div class="waterfall-stats">
-                        <span class="waterfall-stat">
-                            <span class="waterfall-stat__value">${waterfallData.totalStarted}</span>
-                            <span class="waterfall-stat__label">Started</span>
-                        </span>
-                        <span class="waterfall-stat">
-                            <span class="waterfall-stat__value">${waterfallData.totalCompleted}</span>
-                            <span class="waterfall-stat__label">Completed</span>
-                        </span>
-                        <span class="waterfall-stat">
-                            <span class="waterfall-stat__value">${waterfallData.completionRate.toFixed(1)}%</span>
-                            <span class="waterfall-stat__label">Completion Rate</span>
-                        </span>
+            // Create collapsible funnel card
+            const funnelCard = document.createElement('div');
+            funnelCard.className = 'funnel-card';
+            funnelCard.innerHTML = `
+                <div class="funnel-header" onclick="this.closest('.funnel-card').classList.toggle('funnel-card--collapsed')">
+                    <div class="funnel-header__left">
+                        <h3>Order Set: ${orderSetId}</h3>
+                        <div class="funnel-header__stats">
+                            <span class="funnel-stat-badge">
+                                <span class="funnel-stat-badge__value">${funnelData.totalStarted}</span>
+                                <span class="funnel-stat-badge__label">Started</span>
+                            </span>
+                            <span class="funnel-stat-badge">
+                                <span class="funnel-stat-badge__value">${funnelData.totalCompleted}</span>
+                                <span class="funnel-stat-badge__label">Completed</span>
+                            </span>
+                            <span class="funnel-stat-badge funnel-stat-badge--rate">
+                                <span class="funnel-stat-badge__value">${funnelData.completionRate.toFixed(1)}%</span>
+                                <span class="funnel-stat-badge__label">Completion</span>
+                            </span>
+                        </div>
+                    </div>
+                    <button class="funnel-toggle">
+                        <i class="fas fa-chevron-down"></i>
+                    </button>
+                </div>
+                <div class="funnel-content">
+                    <div class="funnel-visualization">
+                        <div class="funnel-chart-wrapper">
+                            <canvas id="funnelChart_${setIndex}"></canvas>
+                        </div>
+                        <div class="funnel-dropoffs" id="funnelDropoffs_${setIndex}">
+                            <!-- Drop-off percentages will be rendered here -->
+                        </div>
                     </div>
                 </div>
-                <div class="waterfall-chart-wrapper">
-                    <canvas id="waterfallChart_${setIndex}"></canvas>
-                </div>
             `;
-            container.appendChild(waterfallCard);
+            container.appendChild(funnelCard);
             
-            // Render waterfall chart
+            // Render funnel chart
             setTimeout(() => {
-                this.renderWaterfallChart(`waterfallChart_${setIndex}`, waterfallData, orderSetId);
+                this.renderFunnelChart(`funnelChart_${setIndex}`, funnelData, orderSetId);
+                this.renderFunnelDropoffs(`funnelDropoffs_${setIndex}`, funnelData);
             }, 100);
         });
     }
     
-    calculateWaterfallData(questionList) {
+    calculateFunnelData(questionList) {
         // Sort by question index
         const sorted = [...questionList].sort((a, b) => (a.questionIndex || 0) - (b.questionIndex || 0));
         
         if (sorted.length === 0) {
             return {
-                labels: [],
-                started: [],
-                answered: [],
-                dropped: [],
+                steps: [],
                 totalStarted: 0,
                 totalCompleted: 0,
                 completionRate: 0
             };
         }
         
-        const labels = [];
-        const started = [];
-        const answered = [];
-        const dropped = [];
+        const steps = [];
+        const initialUsers = sorted[0].startedCount || 0;
         
-        let currentFlow = sorted[0].startedCount || 0; // Start with first question's started count
+        // Add start step
+        steps.push({
+            label: 'Start',
+            users: initialUsers,
+            dropoff: 0,
+            dropoffPercent: 0
+        });
+        
+        // Calculate flow through each question
+        let previousUsers = initialUsers;
         
         sorted.forEach((q, index) => {
-            const qIndex = q.questionIndex !== null ? q.questionIndex : index;
-            labels.push(`Q${qIndex + 1}`);
-            
             const startedCount = q.startedCount || 0;
             const answeredCount = q.answeredCount || 0;
             const droppedCount = startedCount - answeredCount;
             
-            started.push(startedCount);
-            answered.push(answeredCount);
-            dropped.push(droppedCount);
+            // Users reaching this question (should match previous answered count)
+            const usersReaching = index === 0 ? startedCount : previousUsers;
+            
+            // Users continuing to next question
+            const usersContinuing = answeredCount;
+            
+            // Drop-off between previous step and this step
+            const dropoff = usersReaching - usersContinuing;
+            const dropoffPercent = usersReaching > 0 ? (dropoff / usersReaching * 100) : 0;
+            
+            steps.push({
+                label: `Q${(q.questionIndex || index) + 1}`,
+                questionId: q.questionId,
+                users: usersContinuing,
+                dropoff: dropoff,
+                dropoffPercent: dropoffPercent,
+                usersReaching: usersReaching
+            });
+            
+            previousUsers = usersContinuing;
         });
         
         // Calculate totals
-        const totalStarted = sorted[0]?.startedCount || 0;
-        const totalCompleted = sorted[sorted.length - 1]?.answeredCount || 0;
+        const totalStarted = initialUsers;
+        const totalCompleted = steps[steps.length - 1]?.users || 0;
         const completionRate = totalStarted > 0 ? (totalCompleted / totalStarted * 100) : 0;
         
         return {
-            labels,
-            started,
-            answered,
-            dropped,
+            steps,
             totalStarted,
             totalCompleted,
             completionRate
         };
     }
     
-    renderWaterfallChart(canvasId, data, orderSetId) {
+    renderFunnelDropoffs(containerId, funnelData) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        const dropoffItems = [];
+        
+        // Create drop-off analysis between steps
+        for (let i = 1; i < funnelData.steps.length; i++) {
+            const currentStep = funnelData.steps[i];
+            const previousStep = funnelData.steps[i - 1];
+            
+            if (currentStep.dropoff > 0) {
+                dropoffItems.push({
+                    from: previousStep.label,
+                    to: currentStep.label,
+                    fromUsers: previousStep.users,
+                    toUsers: currentStep.users,
+                    dropoff: currentStep.dropoff,
+                    dropoffPercent: currentStep.dropoffPercent
+                });
+            }
+        }
+        
+        if (dropoffItems.length === 0) {
+            container.innerHTML = '<div class="no-dropoffs">No drop-offs detected</div>';
+            return;
+        }
+        
+        container.innerHTML = `
+            <div class="funnel-dropoffs-header">
+                <h4>Drop-off Analysis</h4>
+                <p class="funnel-dropoffs-subtitle">Percentage of users leaving at each step</p>
+            </div>
+            <div class="funnel-dropoffs-list">
+                ${dropoffItems.map(item => `
+                    <div class="funnel-dropoff-item">
+                        <div class="funnel-dropoff-item__transition">
+                            <span class="funnel-dropoff-item__from">${item.from}</span>
+                            <i class="fas fa-arrow-right"></i>
+                            <span class="funnel-dropoff-item__to">${item.to}</span>
+                        </div>
+                        <div class="funnel-dropoff-item__stats">
+                            <span class="funnel-dropoff-item__users">${item.fromUsers} → ${item.toUsers} users</span>
+                            <span class="funnel-dropoff-item__percent ${item.dropoffPercent > 50 ? 'funnel-dropoff-item__percent--high' : item.dropoffPercent > 20 ? 'funnel-dropoff-item__percent--medium' : ''}">
+                                ${item.dropoffPercent.toFixed(1)}% drop-off
+                            </span>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+    
+    renderFunnelChart(canvasId, funnelData, orderSetId) {
         const ctx = document.getElementById(canvasId);
         if (!ctx) return;
         
@@ -651,100 +746,47 @@ class AnalyticsDashboard {
             this.charts[canvasId].destroy();
         }
         
-        // Calculate waterfall flow: cumulative users at each question
-        // Start with first question's started count
-        const initialUsers = data.started[0] || 0;
-        const flowData = [];
-        let currentUsers = initialUsers;
+        if (!funnelData.steps || funnelData.steps.length === 0) {
+            return;
+        }
         
-        // Add starting point
-        flowData.push({
-            label: 'Start',
-            value: initialUsers,
-            type: 'start'
-        });
+        // Extract data for chart
+        const labels = funnelData.steps.map(s => s.label);
+        const userCounts = funnelData.steps.map(s => s.users);
         
-        // Calculate flow through each question
-        data.labels.forEach((label, index) => {
-            const started = data.started[index] || 0;
-            const answered = data.answered[index] || 0;
-            const dropped = data.dropped[index] || 0;
-            
-            // Users continuing to next question
-            flowData.push({
-                label: label,
-                value: answered,
-                dropped: dropped,
-                cumulative: currentUsers,
-                type: 'question'
-            });
-            
-            currentUsers = answered; // Next question starts with those who answered
-        });
-        
-        // Create waterfall using stacked bars with custom positioning
-        // We'll use a combination of base bars and flow bars
-        const baseValues = [];
-        const flowValues = [];
-        const dropValues = [];
-        const allLabels = ['Start', ...data.labels];
-        
-        // Starting point
-        baseValues.push(initialUsers);
-        flowValues.push(0);
-        dropValues.push(0);
-        
-        // Each question
-        let cumulative = initialUsers;
-        data.labels.forEach((label, index) => {
-            const answered = data.answered[index] || 0;
-            const dropped = data.dropped[index] || 0;
-            
-            // Base is the cumulative users reaching this question
-            baseValues.push(cumulative);
-            // Flow is how many answered (positive)
-            flowValues.push(answered);
-            // Drops are negative
-            dropValues.push(-dropped);
-            
-            cumulative = answered; // Next question starts with answered count
-        });
-        
-        // Create the waterfall chart
+        // Create funnel-style bar chart (decreasing bars)
         this.charts[canvasId] = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: allLabels,
-                datasets: [
-                    {
-                        label: 'Users Reaching Question',
-                        data: baseValues,
-                        backgroundColor: 'rgba(2, 115, 197, 0.3)',
-                        borderColor: 'rgba(2, 115, 197, 0.5)',
-                        borderWidth: 1,
-                        order: 3
+                labels: labels,
+                datasets: [{
+                    label: 'Users',
+                    data: userCounts,
+                    backgroundColor: function(context) {
+                        const index = context.dataIndex;
+                        // Gradient from blue to green as users progress
+                        if (index === 0) {
+                            return 'rgba(2, 115, 197, 0.9)'; // Start - blue
+                        } else if (index === userCounts.length - 1) {
+                            return 'rgba(74, 222, 128, 0.9)'; // End - green
+                        } else {
+                            return 'rgba(234, 195, 68, 0.9)'; // Middle - yellow
+                        }
                     },
-                    {
-                        label: 'Answered (Continuing)',
-                        data: flowValues,
-                        backgroundColor: 'rgba(74, 222, 128, 0.9)',
-                        borderColor: 'rgba(74, 222, 128, 1)',
-                        borderWidth: 2,
-                        borderRadius: 6,
-                        barThickness: 50,
-                        order: 1
+                    borderColor: function(context) {
+                        const index = context.dataIndex;
+                        if (index === 0) {
+                            return 'rgba(2, 115, 197, 1)';
+                        } else if (index === userCounts.length - 1) {
+                            return 'rgba(74, 222, 128, 1)';
+                        } else {
+                            return 'rgba(234, 195, 68, 1)';
+                        }
                     },
-                    {
-                        label: 'Dropped',
-                        data: dropValues,
-                        backgroundColor: 'rgba(239, 68, 68, 0.9)',
-                        borderColor: 'rgba(239, 68, 68, 1)',
-                        borderWidth: 2,
-                        borderRadius: 6,
-                        barThickness: 50,
-                        order: 2
-                    }
-                ]
+                    borderWidth: 2,
+                    borderRadius: 8,
+                    barThickness: 60
+                }]
             },
             options: {
                 indexAxis: 'x',
@@ -752,16 +794,7 @@ class AnalyticsDashboard {
                 maintainAspectRatio: false,
                 plugins: {
                     legend: {
-                        position: 'top',
-                        labels: {
-                            font: { family: 'Poppins', size: 12 },
-                            padding: 15,
-                            usePointStyle: true,
-                            filter: function(item, chart) {
-                                // Hide the base dataset from legend
-                                return item.datasetIndex !== 0;
-                            }
-                        }
+                        display: false
                     },
                     tooltip: {
                         backgroundColor: 'rgba(0, 0, 0, 0.85)',
@@ -770,41 +803,29 @@ class AnalyticsDashboard {
                         bodyFont: { family: 'Poppins', size: 13 },
                         callbacks: {
                             label: function(context) {
-                                if (context.datasetIndex === 0) {
-                                    return `Reached: ${context.parsed.y}`;
+                                const index = context.dataIndex;
+                                const step = funnelData.steps[index];
+                                const prevStep = index > 0 ? funnelData.steps[index - 1] : null;
+                                
+                                const tooltip = [`Users: ${step.users}`];
+                                
+                                if (prevStep && step.dropoff > 0) {
+                                    tooltip.push(`Drop-off: ${step.dropoff} (${step.dropoffPercent.toFixed(1)}%)`);
                                 }
-                                const value = Math.abs(context.parsed.y);
-                                const label = context.dataset.label;
-                                return `${label}: ${value}`;
-                            },
-                            afterBody: function(context) {
-                                if (context[0].datasetIndex === 1 && context.length > 1) {
-                                    const base = context[1].parsed.y;
-                                    const answered = context[0].parsed.y;
-                                    const dropped = context.length > 2 ? Math.abs(context[2].parsed.y) : 0;
-                                    const next = answered;
-                                    return [
-                                        '',
-                                        `Flow: ${base} → ${answered} continuing`,
-                                        dropped > 0 ? `${dropped} dropped` : '',
-                                        `Next question starts with: ${next}`
-                                    ].filter(Boolean);
-                                }
-                                return '';
+                                
+                                return tooltip;
                             }
                         }
                     }
                 },
                 scales: {
                     x: {
-                        stacked: true,
                         grid: { display: false },
                         ticks: {
                             font: { family: 'Poppins', size: 12, weight: '600' }
                         }
                     },
                     y: {
-                        stacked: true,
                         beginAtZero: true,
                         grid: { 
                             color: 'rgba(0, 0, 0, 0.05)',
