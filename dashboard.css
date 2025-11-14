@@ -224,9 +224,21 @@ body {
 /* Metrics Row */
 .metrics-row {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(22rem, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     gap: 2rem;
     margin-bottom: 3rem;
+}
+
+@media (max-width: 768px) {
+    .metrics-row {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .metrics-row {
+        grid-template-columns: 1fr;
+    }
 }
 
 .metric-card {
@@ -239,6 +251,7 @@ body {
     box-shadow: var(--shadow-md);
     transition: all 0.3s ease;
     border: 1px solid var(--border-light);
+    min-width: 0; /* Allow flex shrinking */
 }
 
 .metric-card:hover {
@@ -273,6 +286,18 @@ body {
     flex-shrink: 0;
 }
 
+@media (max-width: 1200px) {
+    .metric-icon {
+        width: 4.5rem;
+        height: 4.5rem;
+        font-size: 2rem;
+    }
+    
+    .metric-value {
+        font-size: 2.8rem;
+    }
+}
+
 .metric-card--primary .metric-icon {
     background: linear-gradient(135deg, #0273c5 0%, #025fa3 100%);
     color: white;
@@ -295,6 +320,7 @@ body {
 
 .metric-content {
     flex: 1;
+    min-width: 0; /* Allow text to wrap if needed */
 }
 
 .metric-value {
@@ -320,9 +346,15 @@ body {
 /* Insights Section */
 .insights-section {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(40rem, 1fr));
+    grid-template-columns: repeat(2, 1fr);
     gap: 2rem;
     margin-bottom: 3rem;
+}
+
+@media (max-width: 768px) {
+    .insights-section {
+        grid-template-columns: 1fr;
+    }
 }
 
 .insight-card {
