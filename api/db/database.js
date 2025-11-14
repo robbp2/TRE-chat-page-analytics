@@ -10,13 +10,27 @@ let db;
 if (dbType === 'postgresql') {
     // PostgreSQL connection
     const { Pool } = require('pg');
-    db = new Pool({
-        host: process.env.DB_HOST || 'localhost',
-        port: process.env.DB_PORT || 5432,
-        database: process.env.DB_NAME || 'tre_chatbot',
-        user: process.env.DB_USER,
-        password: process.env.DB_PASSWORD,
-    });
+    
+    // DigitalOcean provides DATABASE_URL, but we can also use individual variables
+    if (process.env.DATABASE_URL) {
+        // Use DATABASE_URL if provided (DigitalOcean standard)
+        db = new Pool({
+            connectionString: process.env.DATABASE_URL,
+            ssl: process.env.DATABASE_URL.includes('ondigitalocean.com') ? { rejectUnauthorized: false } : false
+        });
+    } else {
+        // Fall back to individual connection parameters
+        db = new Pool({
+            host: process.env.DB_HOST || 'localhost',
+            port: process.env.DB_PORT || 5432,
+            database: process.env.DB_NAME || 'tre_chatbot',
+            user: process.env.DB_USER,
+            password: process.env.DB_PASSWORD,
+            ssl: process.env.DB_HOST && process.env.DB_HOST.includes('ondigitalocean.com') 
+                ? { rejectUnauthorized: false } 
+                : false
+        });
+    }
     
     db.on('error', (err) => {
         console.error('PostgreSQL connection error:', err);
