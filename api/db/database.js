@@ -20,14 +20,20 @@ if (dbType === 'postgresql') {
     // DigitalOcean provides DATABASE_URL, but we can also use individual variables
     if (process.env.DATABASE_URL) {
         // Use DATABASE_URL if provided (DigitalOcean standard)
-        // Check if it's a DigitalOcean database (requires SSL)
+        // DigitalOcean databases always require SSL
         const isDigitalOcean = process.env.DATABASE_URL.includes('ondigitalocean.com') || 
-                              process.env.DATABASE_URL.includes('db.ondigitalocean.com');
+                              process.env.DATABASE_URL.includes('db.ondigitalocean.com') ||
+                              process.env.DATABASE_URL.includes('${'); // Also check for variable references
+        
+        // Always use SSL for DigitalOcean, or if DATABASE_URL contains sslmode
+        const needsSSL = isDigitalOcean || process.env.DATABASE_URL.includes('sslmode');
         
         db = new Pool({
             connectionString: process.env.DATABASE_URL,
-            ssl: isDigitalOcean ? sslConfig : false
+            ssl: needsSSL ? sslConfig : false
         });
+        
+        console.log('PostgreSQL connection configured with SSL:', needsSSL ? 'enabled' : 'disabled');
     } else {
         // Fall back to individual connection parameters
         const isDigitalOcean = process.env.DB_HOST && 
@@ -42,13 +48,22 @@ if (dbType === 'postgresql') {
             password: process.env.DB_PASSWORD,
             ssl: isDigitalOcean ? sslConfig : false
         });
+        
+        console.log('PostgreSQL connection configured with SSL:', isDigitalOcean ? 'enabled' : 'disabled');
     }
     
     db.on('error', (err) => {
         console.error('PostgreSQL connection error:', err);
     });
     
-    console.log('PostgreSQL connection configured with SSL:', process.env.DATABASE_URL ? 'using DATABASE_URL' : 'using individual params');
+    // Test connection on startup
+    db.query('SELECT NOW()')
+        .then(() => {
+            console.log('PostgreSQL connection test successful');
+        })
+        .catch((err) => {
+            console.error('PostgreSQL connection test failed:', err.message);
+        });
 } else {
     // SQLite connection (default)
     const sqlite3 = require('sqlite3').verbose();
