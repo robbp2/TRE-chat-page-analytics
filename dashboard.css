@@ -354,6 +354,7 @@ body {
     color: var(--text-primary);
     line-height: 1;
     margin-bottom: 0.5rem;
+    white-space: nowrap; /* Prevent value from wrapping */
 }
 
 .metric-label {
