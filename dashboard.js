@@ -548,45 +548,229 @@ class AnalyticsDashboard {
             grouped[key].push(q);
         });
         
-        container.innerHTML = Object.keys(grouped).map(orderSetId => {
+        // Clear container and create waterfall for each order set
+        container.innerHTML = '';
+        
+        Object.keys(grouped).forEach((orderSetId, setIndex) => {
             const questionList = grouped[orderSetId].sort((a, b) => (a.questionIndex || 0) - (b.questionIndex || 0));
             
-            return questionList.map(q => {
-                const answerRate = parseFloat(q.answerRate || 0);
-                const rateClass = answerRate >= 80 ? 'high' : answerRate >= 50 ? 'medium' : 'low';
-                const avgTime = q.avgTimeToAnswer ? (q.avgTimeToAnswer / 1000).toFixed(1) + 's' : 'N/A';
-                
-                return `
-                    <div class="question-card">
-                        <div class="question-card__header">
-                            <div class="question-card__badge">Q${(q.questionIndex || 0) + 1}</div>
-                            <div class="question-card__title">Question ${q.questionId}</div>
-                        </div>
-                        <div class="question-card__stats">
-                            <div class="question-stat">
-                                <div class="question-stat__value">${q.startedCount || 0}</div>
-                                <div class="question-stat__label">Started</div>
-                            </div>
-                            <div class="question-stat">
-                                <div class="question-stat__value">${q.answeredCount || 0}</div>
-                                <div class="question-stat__label">Answered</div>
-                                <div class="question-stat__rate question-stat__rate--${rateClass}">
-                                    ${answerRate.toFixed(1)}%
-                                </div>
-                            </div>
-                            <div class="question-stat">
-                                <div class="question-stat__value">${avgTime}</div>
-                                <div class="question-stat__label">Avg Time</div>
-                            </div>
-                            <div class="question-stat">
-                                <div class="question-stat__value">${q.orderSetId || 'N/A'}</div>
-                                <div class="question-stat__label">Order Set</div>
-                            </div>
-                        </div>
+            // Calculate waterfall data
+            const waterfallData = this.calculateWaterfallData(questionList);
+            
+            // Create waterfall chart container
+            const waterfallCard = document.createElement('div');
+            waterfallCard.className = 'waterfall-card';
+            waterfallCard.innerHTML = `
+                <div class="waterfall-header">
+                    <h3>Order Set: ${orderSetId}</h3>
+                    <div class="waterfall-stats">
+                        <span class="waterfall-stat">
+                            <span class="waterfall-stat__value">${waterfallData.totalStarted}</span>
+                            <span class="waterfall-stat__label">Started</span>
+                        </span>
+                        <span class="waterfall-stat">
+                            <span class="waterfall-stat__value">${waterfallData.totalCompleted}</span>
+                            <span class="waterfall-stat__label">Completed</span>
+                        </span>
+                        <span class="waterfall-stat">
+                            <span class="waterfall-stat__value">${waterfallData.completionRate.toFixed(1)}%</span>
+                            <span class="waterfall-stat__label">Completion Rate</span>
+                        </span>
                     </div>
-                `;
-            }).join('');
-        }).join('');
+                </div>
+                <div class="waterfall-chart-wrapper">
+                    <canvas id="waterfallChart_${setIndex}"></canvas>
+                </div>
+            `;
+            container.appendChild(waterfallCard);
+            
+            // Render waterfall chart
+            setTimeout(() => {
+                this.renderWaterfallChart(`waterfallChart_${setIndex}`, waterfallData, orderSetId);
+            }, 100);
+        });
+    }
+    
+    calculateWaterfallData(questionList) {
+        // Sort by question index
+        const sorted = [...questionList].sort((a, b) => (a.questionIndex || 0) - (b.questionIndex || 0));
+        
+        if (sorted.length === 0) {
+            return {
+                labels: [],
+                started: [],
+                answered: [],
+                dropped: [],
+                totalStarted: 0,
+                totalCompleted: 0,
+                completionRate: 0
+            };
+        }
+        
+        const labels = [];
+        const started = [];
+        const answered = [];
+        const dropped = [];
+        
+        let currentFlow = sorted[0].startedCount || 0; // Start with first question's started count
+        
+        sorted.forEach((q, index) => {
+            const qIndex = q.questionIndex !== null ? q.questionIndex : index;
+            labels.push(`Q${qIndex + 1}`);
+            
+            const startedCount = q.startedCount || 0;
+            const answeredCount = q.answeredCount || 0;
+            const droppedCount = startedCount - answeredCount;
+            
+            started.push(startedCount);
+            answered.push(answeredCount);
+            dropped.push(droppedCount);
+        });
+        
+        // Calculate totals
+        const totalStarted = sorted[0]?.startedCount || 0;
+        const totalCompleted = sorted[sorted.length - 1]?.answeredCount || 0;
+        const completionRate = totalStarted > 0 ? (totalCompleted / totalStarted * 100) : 0;
+        
+        return {
+            labels,
+            started,
+            answered,
+            dropped,
+            totalStarted,
+            totalCompleted,
+            completionRate
+        };
+    }
+    
+    renderWaterfallChart(canvasId, data, orderSetId) {
+        const ctx = document.getElementById(canvasId);
+        if (!ctx) return;
+        
+        if (this.charts[canvasId]) {
+            this.charts[canvasId].destroy();
+        }
+        
+        // Create waterfall effect using stacked bars
+        // We'll show: started (base), answered (positive), dropped (negative)
+        const datasets = [
+            {
+                label: 'Answered (Continuing)',
+                data: data.answered,
+                backgroundColor: 'rgba(74, 222, 128, 0.8)',
+                borderColor: 'rgba(74, 222, 128, 1)',
+                borderWidth: 2,
+                borderRadius: 4
+            },
+            {
+                label: 'Dropped',
+                data: data.dropped.map(d => -d), // Negative to show drop
+                backgroundColor: 'rgba(239, 68, 68, 0.8)',
+                borderColor: 'rgba(239, 68, 68, 1)',
+                borderWidth: 2,
+                borderRadius: 4
+            }
+        ];
+        
+        // Calculate cumulative positions for waterfall
+        const cumulativeData = [];
+        let currentLevel = 0;
+        
+        data.labels.forEach((label, index) => {
+            const answered = data.answered[index] || 0;
+            const dropped = data.dropped[index] || 0;
+            
+            cumulativeData.push({
+                start: currentLevel,
+                answered: answered,
+                dropped: dropped,
+                end: currentLevel + answered - dropped
+            });
+            
+            currentLevel = currentLevel + answered - dropped;
+        });
+        
+        // Create custom waterfall visualization
+        this.charts[canvasId] = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.labels,
+                datasets: [
+                    {
+                        label: 'Answered',
+                        data: data.answered,
+                        backgroundColor: 'rgba(74, 222, 128, 0.9)',
+                        borderColor: 'rgba(74, 222, 128, 1)',
+                        borderWidth: 2,
+                        borderRadius: 6,
+                        barThickness: 40
+                    },
+                    {
+                        label: 'Dropped',
+                        data: data.dropped.map(d => -d),
+                        backgroundColor: 'rgba(239, 68, 68, 0.9)',
+                        borderColor: 'rgba(239, 68, 68, 1)',
+                        borderWidth: 2,
+                        borderRadius: 6,
+                        barThickness: 40
+                    }
+                ]
+            },
+            options: {
+                indexAxis: 'x',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            font: { family: 'Poppins', size: 12 },
+                            padding: 15,
+                            usePointStyle: true
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        callbacks: {
+                            label: function(context) {
+                                const value = Math.abs(context.parsed.y);
+                                const label = context.dataset.label;
+                                return `${label}: ${value}`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: false,
+                        grid: { display: false },
+                        ticks: {
+                            font: { family: 'Poppins', size: 12, weight: '600' }
+                        }
+                    },
+                    y: {
+                        stacked: false,
+                        beginAtZero: false,
+                        grid: { 
+                            color: 'rgba(0, 0, 0, 0.05)',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            font: { family: 'Poppins', size: 11 },
+                            callback: function(value) {
+                                return Math.abs(value);
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'Users',
+                            font: { family: 'Poppins', size: 13, weight: '600' }
+                        }
+                    }
+                }
+            }
+        });
     }
     
     getColor(index, alpha = 1) {
