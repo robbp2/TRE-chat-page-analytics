@@ -10,6 +10,9 @@ class TaxReliefChat {
         this.sendBtn = document.getElementById('sendBtn');
         this.typingIndicator = document.getElementById('typingIndicator');
         
+        // Set agent avatar image if configured
+        this.setAgentAvatar();
+        
         this.messageHistory = [];
         this.conversationData = {
             sessionId: this.generateSessionId(),
@@ -39,20 +42,21 @@ class TaxReliefChat {
         this.questionFlow = [];
         this.isInQuestionFlow = false;
         this.questionStartTime = null;
-        this.questionModeEnabled = window.QUESTION_MODE_ENABLED !== false; // Default to enabled
+        this.questionModeEnabled = window.QUESTION_MODE_ENABLED === true; // Default to disabled, must be explicitly enabled
         
         // Load question configuration
         this.loadQuestionConfig();
         
-        // Initialize question flow if enabled
-        if (this.questionModeEnabled) {
+        // Always initialize question flow if questions are available (for use after welcome messages)
+        if (this.questions && Object.keys(this.questions).length > 0 && 
+            this.orderSets && this.orderSets.length > 0) {
             this.initializeQuestionFlow();
         }
         
         // Agent responses database
         this.agentResponses = {
             greetings: [
-                "Hello! I'm Sarah, and I'm here to help you with your tax relief needs. How can I assist you today?",
+                "Hello! I'm Michael, and I'm here to help you with your tax relief needs. How can I assist you today?",
                 "Hi there! Thanks for reaching out. I specialize in helping people resolve their tax debt. What brings you here today?",
                 "Welcome! I'm here to help you find solutions for your tax problems. What would you like to know?"
             ],
@@ -103,6 +107,9 @@ class TaxReliefChat {
     }
     
     init() {
+        // Scroll page to chat window on load
+        this.scrollToChatWindow();
+        
         // Add event listeners
         this.sendBtn.addEventListener('click', () => this.sendMessage());
         this.chatInput.addEventListener('keydown', (e) => {
@@ -117,10 +124,23 @@ class TaxReliefChat {
             this.autoResizeTextarea();
         });
         
-        // Focus input on load
+        // Focus input on load (prevent scroll by focusing after scroll completes)
+        // Wait longer to ensure smooth scroll completes (smooth scrolls typically take 300-500ms)
         setTimeout(() => {
-            this.chatInput.focus();
-        }, 500);
+            // Store current scroll position before focusing
+            const scrollY = window.scrollY;
+            // Focus the input
+            this.chatInput.focus({ preventScroll: true });
+            // If preventScroll doesn't work, restore scroll position
+            requestAnimationFrame(() => {
+                if (Math.abs(window.scrollY - scrollY) > 5) {
+                    window.scrollTo({
+                        top: scrollY,
+                        behavior: 'auto'
+                    });
+                }
+            });
+        }, 800); // Wait for smooth scroll to complete (100ms start + ~500ms duration + buffer)
         
         // Set up page unload handler to save conversation
         if (this.apiConfig.sendOnUnload) {
@@ -147,11 +167,27 @@ class TaxReliefChat {
                         this.startQuestionFlow();
                     } else {
                         // Regular welcome message
-                        this.addAgentMessage("Hello! I'm Sarah from Tax Relief Experts. 👋 I'm here to help you resolve your tax debt. How can I assist you today?");
+                        this.addAgentMessage("Hello! 👋 I'm Michael from Tax Relief Experts.  If you owe the IRS or the State taxes, you've come to the right place. Let's see if you qualify for cutting your tax debt by up to 90%.");
+                        // Add second message after a delay
+                        setTimeout(() => {
+                            this.showTypingIndicator();
+                            setTimeout(() => {
+                                this.hideTypingIndicator();
+                                setTimeout(() => {
+                                    this.addAgentMessage("I'll need to gather some information from you to see if you qualify.  Let's get started.");
+                                    // Start question flow after second message
+                                    setTimeout(() => {
+                                        if (this.isInQuestionFlow && this.questionFlow.length > 0) {
+                                            this.startQuestionFlow();
+                                        }
+                                    }, 1500);
+                                }, 300);
+                            }, 1500);
+                        }, 2500);
                     }
                 }, 300);
-            }, 2000);
-        }, 1000);
+            }, 1000);
+        }, 500);
     }
     
     // ============================================
@@ -175,14 +211,14 @@ class TaxReliefChat {
     }
     
     initializeQuestionFlow() {
-        if (!this.questionModeEnabled || !this.orderSets || this.orderSets.length === 0) {
+        if (!this.orderSets || this.orderSets.length === 0) {
             return;
         }
         
         // Randomly select an order set
         const randomIndex = Math.floor(Math.random() * this.orderSets.length);
         this.currentOrderSet = this.orderSets[randomIndex];
-        
+        //this.currentOrderSet = this.orderSets[3];
         // Build question flow array
         this.questionFlow = this.currentOrderSet.order.map(qId => ({
             questionId: qId,
@@ -246,16 +282,37 @@ class TaxReliefChat {
         // Format question based on type
         let questionText = questionData.text;
         
-        // Add question to chat
-        this.addAgentMessage(questionText);
-        
-        // Show quick-response buttons in messages area for question 1 (if configured)
-        if (currentQuestion.questionId === 1 && questionData.quickResponses) {
-            this.showQuickResponseButtons(questionData.quickResponses);
+        // Show typing indicator before adding question (if not already showing)
+        if (!this.isTyping) {
+            this.showTypingIndicator();
+            setTimeout(() => {
+                this.hideTypingIndicator();
+                setTimeout(() => {
+                    // Add question to chat
+                    this.addAgentMessage(questionText);
+                    
+                    // Show quick-response buttons in messages area for question 1 (if configured)
+                    if (currentQuestion.questionId === 1 && questionData.quickResponses) {
+                        this.showQuickResponseButtons(questionData.quickResponses, currentQuestion.questionId);
+                    }
+                    
+                    // Show appropriate input UI based on question type
+                    this.showQuestionInput(questionData);
+                }, 300);
+            }, 1500);
+        } else {
+            // If typing indicator is already showing, just add the message after it hides
+            // Add question to chat
+            this.addAgentMessage(questionText);
+            
+            // Show quick-response buttons in messages area for question 1 (if configured)
+            if (currentQuestion.questionId === 1 && questionData.quickResponses) {
+                this.showQuickResponseButtons(questionData.quickResponses, currentQuestion.questionId);
+            }
+            
+            // Show appropriate input UI based on question type
+            this.showQuestionInput(questionData);
         }
-        
-        // Show appropriate input UI based on question type
-        this.showQuestionInput(questionData);
     }
     
     showQuestionInput(questionData) {
@@ -335,6 +392,8 @@ class TaxReliefChat {
     
     showMultipleChoiceButtons(options, container, questionData) {
         const isStateQuestion = questionData.validation && questionData.validation.type === 'state';
+        const currentQuestion = this.questionFlow[this.currentQuestionIndex];
+        const questionId = currentQuestion ? currentQuestion.questionId : null;
         
         // Create wrapper for state questions with filter
         let wrapper = null;
@@ -349,6 +408,11 @@ class TaxReliefChat {
             buttonContainer = document.createElement('div');
             buttonContainer.className = 'question-buttons question-buttons--multiple question-buttons--scrollable';
             
+            // Add grid class for question 3 (state)
+            if (questionId === 3) {
+                buttonContainer.classList.add('question-buttons--grid');
+            }
+            
             // Create filter input
             filterInput = document.createElement('input');
             filterInput.type = 'text';
@@ -356,8 +420,9 @@ class TaxReliefChat {
             filterInput.placeholder = 'Type to filter states...';
             filterInput.setAttribute('autocomplete', 'off');
             
-            wrapper.appendChild(buttonContainer);
+            // Append filter input first (at top), then button container (below)
             wrapper.appendChild(filterInput);
+            wrapper.appendChild(buttonContainer);
         } else {
             // Regular multiple choice without filter
             buttonContainer = document.createElement('div');
@@ -390,6 +455,49 @@ class TaxReliefChat {
         // Append to container
         if (isStateQuestion) {
             container.appendChild(wrapper);
+            
+            // Ensure scrollable container can scroll after it's added to DOM
+            setTimeout(() => {
+                if (buttonContainer && buttonContainer.classList.contains('question-buttons--scrollable')) {
+                    // Force a reflow to ensure styles are applied
+                    buttonContainer.offsetHeight;
+                    
+                    // Force height and overflow to ensure scrolling works
+                    buttonContainer.style.height = '18rem';
+                    buttonContainer.style.maxHeight = '18rem';
+                    buttonContainer.style.overflowY = 'scroll';
+                    buttonContainer.style.overflowX = 'hidden';
+                    buttonContainer.style.flex = '0 0 auto'; // Prevent flex from overriding
+                    
+                    // Wait for layout to calculate, then verify scrolling
+                    requestAnimationFrame(() => {
+                        const contentHeight = buttonContainer.scrollHeight;
+                        const containerHeight = buttonContainer.clientHeight;
+                        
+                        // If content fits without scrolling, reduce height further
+                        if (contentHeight <= containerHeight && contentHeight > 0) {
+                            buttonContainer.style.height = '12rem';
+                            buttonContainer.style.maxHeight = '12rem';
+                        }
+                        
+                        // Verify scrolling is working
+                        if (contentHeight > containerHeight) {
+                            console.log('State buttons container is scrollable:', {
+                                contentHeight,
+                                containerHeight,
+                                canScroll: contentHeight > containerHeight,
+                                scrollTop: buttonContainer.scrollTop,
+                                scrollHeight: buttonContainer.scrollHeight
+                            });
+                        } else {
+                            console.warn('State buttons container may not be scrollable:', {
+                                contentHeight,
+                                containerHeight
+                            });
+                        }
+                    });
+                }
+            }, 100);
         } else {
             container.appendChild(buttonContainer);
         }
@@ -495,10 +603,15 @@ class TaxReliefChat {
         return div.innerHTML;
     }
     
-    showQuickResponseButtons(options) {
+    showQuickResponseButtons(options, questionId) {
         // Create quick-response buttons container
         const quickResponseContainer = document.createElement('div');
         quickResponseContainer.className = 'quick-response-buttons';
+        
+        // Add grid class for questions 1 (amount) and 3 (state)
+        if (questionId === 1 || questionId === 3) {
+            quickResponseContainer.classList.add('quick-response-buttons--grid');
+        }
         
         const buttonsHTML = options.map((option) => 
             `<button class="quick-response-btn" data-answer="${this.escapeHtml(option)}">${this.escapeHtml(option)}</button>`
@@ -508,7 +621,30 @@ class TaxReliefChat {
         
         // Add to messages container
         this.messagesContainer.appendChild(quickResponseContainer);
-        this.scrollToBottom();
+        
+        // Scroll to show buttons fully (with extra offset for mobile)
+        setTimeout(() => {
+            const container = this.messagesContainer;
+            // Scroll to bottom with extra padding to ensure buttons are fully visible
+            const scrollHeight = container.scrollHeight;
+            const clientHeight = container.clientHeight;
+            const extraPadding = 150; // Extra padding to ensure buttons aren't cut off
+            
+            container.scrollTop = scrollHeight - clientHeight + extraPadding;
+            
+            // If that doesn't work, try scrolling the button into view
+            requestAnimationFrame(() => {
+                const buttonsRect = quickResponseContainer.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+                
+                // Check if buttons are cut off at bottom
+                if (buttonsRect.bottom > containerRect.bottom - 50) {
+                    // Scroll more to show buttons fully
+                    const additionalScroll = buttonsRect.bottom - containerRect.bottom + 100;
+                    container.scrollTop = container.scrollTop + additionalScroll;
+                }
+            });
+        }, 150);
         
         // Add event listeners
         quickResponseContainer.querySelectorAll('.quick-response-btn').forEach(btn => {
@@ -590,9 +726,35 @@ class TaxReliefChat {
         const quickResponseContainers = this.messagesContainer.querySelectorAll('.quick-response-buttons');
         quickResponseContainers.forEach(container => container.remove());
         
+        // Add user message first (so it always appears, even if validation fails)
+        this.addUserMessage(answer);
+        
         // Validate answer (use original answer for validation)
-        if (!this.validateAnswer(answer, questionData)) {
-            this.addAgentMessage("I didn't understand that. Could you please try again?");
+        const isValid = this.validateAnswer(answer, questionData, currentQuestion.questionId);
+        if (!isValid) {
+            // Show typing indicator before error message
+            this.showTypingIndicator();
+            
+            // Determine error message
+            let errorMessage;
+            if (currentQuestion.questionId === 6) {
+                errorMessage = "Please provide your full first and last name.";
+            } else if (currentQuestion.questionId === 7) {
+                errorMessage = "That doesn't appear to be a valid email address. It's important that you supply your correct email so we can send you a copy of your tax settlement agreement. Please type out your correct email address.";
+            } else if (currentQuestion.questionId === 8) {
+                errorMessage = "That doesn't appear to be a valid phone number. Please enter your phone number in a format like (555) 123-4567 or 555-123-4567.";
+            } else {
+                errorMessage = "I didn't understand that. Could you please try again?";
+            }
+            
+            // Show error message after typing delay
+            setTimeout(() => {
+                this.hideTypingIndicator();
+                setTimeout(() => {
+                    this.addAgentMessage(errorMessage);
+                }, 300);
+            }, 1500);
+            
             return;
         }
         
@@ -602,9 +764,6 @@ class TaxReliefChat {
         currentQuestion.rawAnswer = answer; // Store original answer too
         currentQuestion.timestamp = Date.now();
         currentQuestion.timeToAnswer = currentQuestion.timestamp - questionStartTime;
-        
-        // Add user message (show original answer in chat, but store categorized)
-        this.addUserMessage(answer);
         
         // Track answer (store categorized version)
         this.trackQuestionAnswer(
@@ -627,10 +786,10 @@ class TaxReliefChat {
         // Move to next question
         this.currentQuestionIndex++;
         
-        // Small delay before next question
+        // Small delay before next question (typing indicator will be shown in askNextQuestion)
         setTimeout(() => {
             this.askNextQuestion();
-        }, 1500);
+        }, 500);
     }
     
     evaluateCondition(answer, condition) {
@@ -657,12 +816,84 @@ class TaxReliefChat {
         return false;
     }
     
-    validateAnswer(answer, question) {
+    validateEmail(email) {
+        // Basic email validation regex
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email.trim());
+    }
+    
+    validatePhone(phone) {
+        // Remove common phone number formatting characters
+        const cleaned = phone.replace(/[\s\-\(\)\.]/g, '');
+        // Check if it's a valid phone number (10 digits, optionally with country code)
+        const phoneRegex = /^(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})$/;
+        // Also check for just digits (10 or 11 digits)
+        const digitsOnly = cleaned.replace(/\D/g, '');
+        return (phoneRegex.test(phone) || (digitsOnly.length >= 10 && digitsOnly.length <= 11));
+    }
+    
+    validateFullName(name) {
+        // Trim whitespace
+        const trimmed = name.trim();
+        
+        // Must contain at least one space (at least 2 words)
+        if (!trimmed.includes(' ')) {
+            return false;
+        }
+        
+        // Check for invalid characters - only letters, spaces, and hyphens allowed
+        // Allow letters (including accented characters), spaces, and hyphens
+        const validNameRegex = /^[a-zA-ZÀ-ÿ\s\-]+$/;
+        if (!validNameRegex.test(trimmed)) {
+            return false;
+        }
+        
+        // Split by spaces and filter out empty strings
+        const words = trimmed.split(/\s+/).filter(word => word.length > 0);
+        
+        // Must have at least 2 words
+        if (words.length < 2) {
+            return false;
+        }
+        
+        // Each word must be at least 2 characters (after removing hyphens for length check)
+        for (const word of words) {
+            // Check word length (hyphens don't count toward minimum length)
+            const wordWithoutHyphens = word.replace(/-/g, '');
+            if (wordWithoutHyphens.length < 2) {
+                return false;
+            }
+            
+            // Ensure word doesn't start or end with hyphen
+            if (word.startsWith('-') || word.endsWith('-')) {
+                return false;
+            }
+        }
+        
+        return true;
+    }
+    
+    validateAnswer(answer, question, questionId) {
         if (!answer || (typeof answer === 'string' && !answer.trim())) {
             if (question.required) {
                 return false;
             }
             return true; // Optional questions can be empty
+        }
+        
+        // Validate full name for question 6
+        if (questionId === 6) {
+            return this.validateFullName(answer);
+        }
+        
+        // Validate email for question 7
+        if (questionId === 7) {
+            return this.validateEmail(answer);
+        }
+        
+        // Validate phone for question 8
+        if (questionId === 8) {
+            return this.validatePhone(answer);
         }
         
         switch(question.type) {
@@ -730,11 +961,30 @@ class TaxReliefChat {
         
         // Transition to normal chat or thank you message
         setTimeout(() => {
-            this.addAgentMessage("Thank you for providing that information! Let me connect you with one of our tax experts who can help you further. Is there anything else you'd like to know?");
+            this.addAgentMessage("Thank you for providing that information! Based on that info, you are eligible for a completely free case evaluation. One of our specialists will assess your situation and determine if we can qualify you for a tax settlement to eliminate up to 90% of your tax debt");
+            
+            // After 8 seconds, collapse chat and show call button
+            setTimeout(() => {
+                this.showCallToAction();
+            }, 8000);
         }, 1000);
         
         // Send complete data to API
         this.sendQuestionFlowData();
+    }
+    
+    showCallToAction() {
+        // Collapse the chat window
+        const chatWindow = document.getElementById('chatWindow');
+        if (chatWindow) {
+            chatWindow.classList.add('chat-window--collapsed');
+        }
+        
+        // Show eligibility message and call button
+        const ctaContainer = document.getElementById('ctaContainer');
+        if (ctaContainer) {
+            ctaContainer.classList.add('cta-container--visible');
+        }
     }
     
     trackQuestionStart(questionId) {
@@ -915,7 +1165,7 @@ class TaxReliefChat {
             text: text,
             timestamp: new Date().toISOString(),
             displayTime: this.getCurrentTime(),
-            agentName: 'Sarah Johnson'
+            agentName: 'Michael D.'
         };
         
         this.messageHistory.push({ type: 'agent', text });
@@ -931,7 +1181,8 @@ class TaxReliefChat {
         avatar.className = 'message__avatar';
         
         if (type === 'agent') {
-            avatar.innerHTML = '<i class="fas fa-user-circle"></i>';
+            const avatarUrl = window.AGENT_AVATAR_URL || 'img/agent-avatar.jpg';
+            avatar.innerHTML = `<img src="${avatarUrl}" alt="Agent Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
         } else {
             avatar.innerHTML = '<i class="fas fa-user"></i>';
         }
@@ -1007,6 +1258,21 @@ class TaxReliefChat {
         this.typingIndicator.classList.remove('active');
     }
     
+    scrollToChatWindow() {
+        // Scroll page to the top of the chat window on load with 10px offset from top
+        const chatWindow = document.querySelector('.chat-hero__text');
+        if (chatWindow) {
+            setTimeout(() => {
+                const elementPosition = chatWindow.getBoundingClientRect().top;
+                const offsetPosition = elementPosition + window.pageYOffset - 10;
+                window.scrollTo({
+                    top: offsetPosition,
+                    behavior: 'smooth'
+                });
+            }, 100);
+        }
+    }
+    
     scrollToBottom() {
         setTimeout(() => {
             this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
@@ -1026,6 +1292,23 @@ class TaxReliefChat {
     // ============================================
     // API INTEGRATION METHODS
     // ============================================
+    
+    setAgentAvatar() {
+        // Set the agent avatar image in the header if configured
+        const avatarImg = document.getElementById('agentAvatarImg');
+        if (avatarImg) {
+            const avatarUrl = window.AGENT_AVATAR_URL || 'img/agent-avatar.jpg';
+            avatarImg.src = avatarUrl;
+            // Add error handler in case image doesn't load
+            avatarImg.onerror = () => {
+                // Fallback to icon if image fails to load
+                const avatarContainer = avatarImg.parentElement;
+                if (avatarContainer) {
+                    avatarContainer.innerHTML = '<i class="fas fa-user-circle"></i>';
+                }
+            };
+        }
+    }
     
     generateSessionId() {
         // Generate a unique session ID

@@ -3,7 +3,7 @@ region: nyc
 services:
   - name: api
     github:
-      repo: your-username/your-repo-name
+      repo: robbp2/TRE-chat-page-analytics
       branch: main
       deploy_on_push: true
     source_dir: api

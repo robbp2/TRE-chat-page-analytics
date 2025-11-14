@@ -7,7 +7,7 @@
 const QUESTIONS = {
     1: {
         id: 1,
-        text: "What is your approximate tax debt amount?",
+        text: "Approximately how much do you owe in taxes?",
         type: "amount", // amount, text, yesno, multiple_choice
         required: true,
         validation: {
@@ -74,7 +74,7 @@ const QUESTIONS = {
     },
     4: {
         id: 4,
-        text: "Are you missing any tax returns?",
+        text: "Are any of your tax returns unfiled?",
         type: "yesno",
         required: true
     },
@@ -92,7 +92,7 @@ const QUESTIONS = {
     },
     7: {
         id: 7,
-        text: "What is your email address?",
+        text: "What is your email address? (This will be used to send you a copy of your tax settlement agreement, never for spam.)",
         type: "text",
         required: true
     },
@@ -129,7 +129,13 @@ const ORDER_SETS = [
         name: "Asset-First Approach",
         order: [6, 4, 7, 2, 1, 5, 3, 8],
         description: "Prioritize asset and employment questions"
-    }
+    }/*,
+    {
+        id: "set_5",
+        name: "Contact Info First (just for testing)",
+        order: [7, 8, 6, 4, 2, 1, 5, 3],
+        description: "Prioritize contact information first"
+    }*/
 ];
 
 // Make available globally

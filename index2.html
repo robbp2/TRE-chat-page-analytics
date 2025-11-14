@@ -85,20 +85,56 @@
                     </div>
                     
                     <!-- Call to Action Container (hidden by default) -->
-                    <div class="cta-container" id="ctaContainer">
-                        <div class="cta-message">
-                            <h2 class="cta-title">Next Step: Claim your FREE case evaluation!</h2>
-                            <p class="cta-description">Put a <strong><u>STOP</u></strong> to the phone calls and letters from the IRS. Let us help you get rid of up to 90% of what you owe. <strong>ZERO</strong> up-front payment required for your consult.</p>
+                    <div class="cta-container cta-container--incoming-call" id="ctaContainer">
+                        <div class="incoming-call-header">
+                            <div class="incoming-call-icon-wrapper">
+                                <i class="fas fa-phone incoming-call-icon ringing"></i>
+                                <div class="ring-ripple ring-ripple-1"></div>
+                                <div class="ring-ripple ring-ripple-2"></div>
+                                <div class="ring-ripple ring-ripple-3"></div>
                             </div>
-                            <a href="tel:+18886142994" class="cta-call-button">
-                                <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="w-8 h-8 primary-text-dark iconify iconify--mdi shake" preserveAspectRatio="xMidYMid meet" viewBox="0 0 24 24" style="float: left;width:40px;">
-                                    <path fill="currentColor" d="M15 12h2a5 5 0 0 0-5-5v2a3 3 0 0 1 3 3m4 0h2c0-5-4.03-9-9-9v2c3.86 0 7 3.13 7 7m1 3.5c-1.25 0-2.45-.2-3.57-.57c-.35-.11-.74-.03-1.02.25l-2.2 2.2a15.097 15.097 0 0 1-6.59-6.59l2.2-2.2c.28-.28.36-.67.25-1.02A11.36 11.36 0 0 1 8.5 4a1 1 0 0 0-1-1H4a1 1 0 0 0-1 1a17 17 0 0 0 17 17a1 1 0 0 0 1-1v-3.5a1 1 0 0 0-1-1Z">
-                                    </path>
-                                 </svg>
-                                <span class="cta-phone-number">(888) 614-2994</span>
-                            </a>
+                            <div class="incoming-call-badge">
+                                <span class="badge-pulse"></span>
+                                <span class="badge-text">INCOMING CALL</span>
+                            </div>
+                        </div>
+                        
                         <div class="cta-message">
-                            <p class="cta-warning">The debt won't go away on its own. And the government can and will garnish your wages, bank accounts, and even your home if you don't take action. Let us help you. Take the first step by calling today.</p>
+                            <h2 class="cta-title cta-title--urgent">
+                                <span class="urgent-highlight">An Specialist Is Calling You In Just A Moment!</span>
+                            </h2>
+                            <p class="cta-description cta-description--emphasized">
+                                One of our <strong>tax relief specialists</strong> is about to call you at the number you provided to discuss your <strong>FREE case evaluation</strong>.
+                            </p>
+                        </div>
+                        
+                        <div class="call-instructions">
+                            <div class="instruction-item">
+                                <i class="fas fa-check-circle instruction-icon"></i>
+                                <p class="instruction-text"><strong>Answer the call</strong> - It's coming from our team</p>
+                            </div>
+                            <div class="instruction-item">
+                                <i class="fas fa-clock instruction-icon"></i>
+                                <p class="instruction-text">Call will arrive <strong>within the next few minutes</strong></p>
+                            </div>
+                            <div class="instruction-item">
+                                <i class="fas fa-shield-alt instruction-icon"></i>
+                                <p class="instruction-text">This call is <strong>100% FREE</strong> - No obligation</p>
+                            </div>
+                        </div>
+                        
+                        <div class="urgent-warning-box">
+                            <i class="fas fa-exclamation-triangle warning-icon"></i>
+                            <p class="warning-text">
+                                <strong>IMPORTANT:</strong> Please answer this call! Our specialist has reviewed your information and is ready to help you eliminate up to <strong>90% of your tax debt</strong>. Missing this call could delay your relief by weeks or months.
+                            </p>
+                        </div>
+                        
+                        <div class="call-status">
+                            <div class="status-indicator-wrapper">
+                                <div class="status-dot"></div>
+                                <span class="status-text">Preparing your call...</span>
+                            </div>
                         </div>
                     </div>
                 </div>
