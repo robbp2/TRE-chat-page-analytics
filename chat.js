@@ -1183,6 +1183,47 @@ document.addEventListener('DOMContentLoaded', () => {
     chatInstance = new TaxReliefChat();
     // Make instance available globally for API configuration
     window.taxReliefChat = chatInstance;
+    
+    // Send completion data when user leaves/closes the page
+    window.addEventListener('beforeunload', () => {
+        if (chatInstance && chatInstance.isInQuestionFlow) {
+            // Calculate completion percentage
+            const answeredCount = chatInstance.questionFlow.filter(q => q.answered).length;
+            const totalQuestions = chatInstance.questionFlow.length;
+            const completionPercentage = totalQuestions > 0 ? (answeredCount / totalQuestions) * 100 : 0;
+            const completionTime = Date.now() - chatInstance.questionStartTime;
+            
+            // Send completion event using sendBeacon for reliability
+            const endpoint = window.ANALYTICS_ENDPOINT || 
+                           'https://tre-chatbot-analytics-api-x2aka.ondigitalocean.app/api/analytics/event';
+            
+            const data = JSON.stringify({
+                eventType: 'question_flow_completed',
+                sessionId: chatInstance.conversationData.sessionId,
+                timestamp: new Date().toISOString(),
+                data: {
+                    orderSetId: chatInstance.currentOrderSet?.id,
+                    completionPercentage: completionPercentage,
+                    totalTime: completionTime,
+                    questionsAnswered: answeredCount,
+                    totalQuestions: totalQuestions
+                }
+            });
+            
+            // Use sendBeacon for reliable delivery during page unload
+            if (navigator.sendBeacon) {
+                navigator.sendBeacon(endpoint, data);
+            } else {
+                // Fallback to sync fetch (may not complete)
+                fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: data,
+                    keepalive: true
+                }).catch(() => {});
+            }
+        }
+    });
 });
 
 // Add some interactive features
