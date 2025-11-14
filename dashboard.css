@@ -229,12 +229,37 @@ body {
     margin-bottom: 3rem;
 }
 
-@media (max-width: 768px) {
+/* Reduce gap and padding on medium screens to ensure cards fit */
+@media (max-width: 1400px) {
     .metrics-row {
-        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+    }
+    
+    .metric-card {
+        padding: 2rem 1.5rem;
     }
 }
 
+@media (max-width: 1200px) {
+    .metrics-row {
+        gap: 1.2rem;
+    }
+    
+    .metric-card {
+        padding: 1.8rem 1.2rem;
+        gap: 1.5rem;
+    }
+}
+
+/* Tablet: 2 columns */
+@media (max-width: 768px) {
+    .metrics-row {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1.5rem;
+    }
+}
+
+/* Mobile: 1 column */
 @media (max-width: 480px) {
     .metrics-row {
         grid-template-columns: 1fr;
@@ -931,11 +956,6 @@ body {
 @media (max-width: 768px) {
     .dashboard-main {
         padding: 1.5rem;
-    }
-    
-    .metrics-row {
-        grid-template-columns: 1fr;
-        gap: 1.5rem;
     }
     
     .metric-card {
