@@ -179,6 +179,16 @@ body {
     transform: translateY(0);
 }
 
+.nav-btn--danger {
+    background: var(--error-red);
+}
+
+.nav-btn--danger:hover {
+    background: #dc2626;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
 /* Main Content */
 .dashboard-main {
     flex: 1;

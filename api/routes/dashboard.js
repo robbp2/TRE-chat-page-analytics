@@ -76,5 +76,38 @@ router.get('/completion-rates', async (req, res) => {
     }
 });
 
+// DELETE /api/dashboard/clear-data
+// Clear all analytics data (keeps order_sets and questions)
+router.delete('/clear-data', async (req, res) => {
+    try {
+        const db = require('../db/database');
+        
+        // Clear data tables in order (respecting foreign key constraints)
+        // First clear dependent tables
+        await db.query('DELETE FROM dropoff_points');
+        await db.query('DELETE FROM question_events');
+        await db.query('DELETE FROM chat_sessions');
+        
+        // Note: We keep order_sets and questions tables intact
+        
+        res.json({ 
+            success: true, 
+            message: 'All analytics data has been cleared',
+            cleared: {
+                dropoff_points: true,
+                question_events: true,
+                chat_sessions: true
+            }
+        });
+    } catch (error) {
+        console.error('Clear data error:', error);
+        console.error('Error stack:', error.stack);
+        res.status(500).json({ 
+            error: 'Failed to clear analytics data',
+            message: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
+    }
+});
+
 module.exports = router;
 

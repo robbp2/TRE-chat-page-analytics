@@ -38,6 +38,10 @@ class AnalyticsDashboard {
         document.getElementById('refreshBtn').addEventListener('click', () => {
             this.loadDashboardData();
         });
+        
+        document.getElementById('clearDataBtn').addEventListener('click', () => {
+            this.clearAllData();
+        });
     }
     
     showLoading() {
@@ -863,6 +867,62 @@ class AnalyticsDashboard {
             `rgba(236, 72, 153, ${alpha})`
         ];
         return colors[index % colors.length];
+    }
+    
+    async clearAllData() {
+        // Show confirmation dialog
+        const confirmed = confirm(
+            '⚠️ WARNING: This will permanently delete ALL analytics data!\n\n' +
+            'This includes:\n' +
+            '• All chat sessions\n' +
+            '• All question events\n' +
+            '• All drop-off points\n\n' +
+            'This action cannot be undone!\n\n' +
+            'Are you sure you want to continue?'
+        );
+        
+        if (!confirmed) {
+            return;
+        }
+        
+        // Double confirmation
+        const doubleConfirmed = confirm(
+            'Are you absolutely sure? This will delete ALL analytics data permanently!'
+        );
+        
+        if (!doubleConfirmed) {
+            return;
+        }
+        
+        this.showLoading();
+        
+        try {
+            const url = `${this.dashboardApiUrl}/clear-data`;
+            const response = await fetch(url, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                mode: 'cors'
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
+            }
+            
+            const result = await response.json();
+            
+            // Show success message
+            alert('✅ Success! All analytics data has been cleared.');
+            
+            // Reload dashboard data
+            this.loadDashboardData();
+            
+        } catch (error) {
+            console.error('Error clearing data:', error);
+            alert(`❌ Failed to clear data: ${error.message}`);
+        } finally {
+            this.hideLoading();
+        }
     }
     
     showError(message) {
