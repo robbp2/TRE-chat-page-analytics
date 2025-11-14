@@ -1212,7 +1212,9 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Use sendBeacon for reliable delivery during page unload
             if (navigator.sendBeacon) {
-                navigator.sendBeacon(endpoint, data);
+                // sendBeacon requires Blob with proper content type
+                const blob = new Blob([data], { type: 'application/json' });
+                navigator.sendBeacon(endpoint, blob);
             } else {
                 // Fallback to sync fetch (may not complete)
                 fetch(endpoint, {
