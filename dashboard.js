@@ -651,68 +651,98 @@ class AnalyticsDashboard {
             this.charts[canvasId].destroy();
         }
         
-        // Create waterfall effect using stacked bars
-        // We'll show: started (base), answered (positive), dropped (negative)
-        const datasets = [
-            {
-                label: 'Answered (Continuing)',
-                data: data.answered,
-                backgroundColor: 'rgba(74, 222, 128, 0.8)',
-                borderColor: 'rgba(74, 222, 128, 1)',
-                borderWidth: 2,
-                borderRadius: 4
-            },
-            {
-                label: 'Dropped',
-                data: data.dropped.map(d => -d), // Negative to show drop
-                backgroundColor: 'rgba(239, 68, 68, 0.8)',
-                borderColor: 'rgba(239, 68, 68, 1)',
-                borderWidth: 2,
-                borderRadius: 4
-            }
-        ];
+        // Calculate waterfall flow: cumulative users at each question
+        // Start with first question's started count
+        const initialUsers = data.started[0] || 0;
+        const flowData = [];
+        let currentUsers = initialUsers;
         
-        // Calculate cumulative positions for waterfall
-        const cumulativeData = [];
-        let currentLevel = 0;
+        // Add starting point
+        flowData.push({
+            label: 'Start',
+            value: initialUsers,
+            type: 'start'
+        });
         
+        // Calculate flow through each question
+        data.labels.forEach((label, index) => {
+            const started = data.started[index] || 0;
+            const answered = data.answered[index] || 0;
+            const dropped = data.dropped[index] || 0;
+            
+            // Users continuing to next question
+            flowData.push({
+                label: label,
+                value: answered,
+                dropped: dropped,
+                cumulative: currentUsers,
+                type: 'question'
+            });
+            
+            currentUsers = answered; // Next question starts with those who answered
+        });
+        
+        // Create waterfall using stacked bars with custom positioning
+        // We'll use a combination of base bars and flow bars
+        const baseValues = [];
+        const flowValues = [];
+        const dropValues = [];
+        const allLabels = ['Start', ...data.labels];
+        
+        // Starting point
+        baseValues.push(initialUsers);
+        flowValues.push(0);
+        dropValues.push(0);
+        
+        // Each question
+        let cumulative = initialUsers;
         data.labels.forEach((label, index) => {
             const answered = data.answered[index] || 0;
             const dropped = data.dropped[index] || 0;
             
-            cumulativeData.push({
-                start: currentLevel,
-                answered: answered,
-                dropped: dropped,
-                end: currentLevel + answered - dropped
-            });
+            // Base is the cumulative users reaching this question
+            baseValues.push(cumulative);
+            // Flow is how many answered (positive)
+            flowValues.push(answered);
+            // Drops are negative
+            dropValues.push(-dropped);
             
-            currentLevel = currentLevel + answered - dropped;
+            cumulative = answered; // Next question starts with answered count
         });
         
-        // Create custom waterfall visualization
+        // Create the waterfall chart
         this.charts[canvasId] = new Chart(ctx, {
             type: 'bar',
             data: {
-                labels: data.labels,
+                labels: allLabels,
                 datasets: [
                     {
-                        label: 'Answered',
-                        data: data.answered,
+                        label: 'Users Reaching Question',
+                        data: baseValues,
+                        backgroundColor: 'rgba(2, 115, 197, 0.3)',
+                        borderColor: 'rgba(2, 115, 197, 0.5)',
+                        borderWidth: 1,
+                        order: 3
+                    },
+                    {
+                        label: 'Answered (Continuing)',
+                        data: flowValues,
                         backgroundColor: 'rgba(74, 222, 128, 0.9)',
                         borderColor: 'rgba(74, 222, 128, 1)',
                         borderWidth: 2,
                         borderRadius: 6,
-                        barThickness: 40
+                        barThickness: 50,
+                        order: 1
                     },
                     {
                         label: 'Dropped',
-                        data: data.dropped.map(d => -d),
+                        data: dropValues,
                         backgroundColor: 'rgba(239, 68, 68, 0.9)',
                         borderColor: 'rgba(239, 68, 68, 1)',
                         borderWidth: 2,
                         borderRadius: 6,
-                        barThickness: 40
+                        barThickness: 50,
+                        order: 2
                     }
                 ]
             },
@@ -726,45 +756,67 @@ class AnalyticsDashboard {
                         labels: {
                             font: { family: 'Poppins', size: 12 },
                             padding: 15,
-                            usePointStyle: true
+                            usePointStyle: true,
+                            filter: function(item, chart) {
+                                // Hide the base dataset from legend
+                                return item.datasetIndex !== 0;
+                            }
                         }
                     },
                     tooltip: {
-                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                        padding: 12,
+                        backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                        padding: 14,
+                        titleFont: { family: 'Poppins', size: 14, weight: '600' },
+                        bodyFont: { family: 'Poppins', size: 13 },
                         callbacks: {
                             label: function(context) {
+                                if (context.datasetIndex === 0) {
+                                    return `Reached: ${context.parsed.y}`;
+                                }
                                 const value = Math.abs(context.parsed.y);
                                 const label = context.dataset.label;
                                 return `${label}: ${value}`;
+                            },
+                            afterBody: function(context) {
+                                if (context[0].datasetIndex === 1 && context.length > 1) {
+                                    const base = context[1].parsed.y;
+                                    const answered = context[0].parsed.y;
+                                    const dropped = context.length > 2 ? Math.abs(context[2].parsed.y) : 0;
+                                    const next = answered;
+                                    return [
+                                        '',
+                                        `Flow: ${base} → ${answered} continuing`,
+                                        dropped > 0 ? `${dropped} dropped` : '',
+                                        `Next question starts with: ${next}`
+                                    ].filter(Boolean);
+                                }
+                                return '';
                             }
                         }
                     }
                 },
                 scales: {
                     x: {
-                        stacked: false,
+                        stacked: true,
                         grid: { display: false },
                         ticks: {
                             font: { family: 'Poppins', size: 12, weight: '600' }
                         }
                     },
                     y: {
-                        stacked: false,
-                        beginAtZero: false,
+                        stacked: true,
+                        beginAtZero: true,
                         grid: { 
                             color: 'rgba(0, 0, 0, 0.05)',
                             drawBorder: false
                         },
                         ticks: {
                             font: { family: 'Poppins', size: 11 },
-                            callback: function(value) {
-                                return Math.abs(value);
-                            }
+                            stepSize: 1
                         },
                         title: {
                             display: true,
-                            text: 'Users',
+                            text: 'Number of Users',
                             font: { family: 'Poppins', size: 13, weight: '600' }
                         }
                     }
