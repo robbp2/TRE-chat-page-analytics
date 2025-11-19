@@ -32,6 +32,9 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
     end_time TIMESTAMP,
     completion_percentage DECIMAL(5,2),
     total_time_ms INTEGER,
+    messages JSONB,
+    metadata JSONB,
+    question_answers JSONB,
     created_at TIMESTAMP DEFAULT NOW()
 );
 

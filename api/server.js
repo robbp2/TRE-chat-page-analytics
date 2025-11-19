@@ -8,6 +8,7 @@ const express = require('express');
 const cors = require('cors');
 const analyticsRoutes = require('./routes/analytics');
 const dashboardRoutes = require('./routes/dashboard');
+const chatRoutes = require('./routes/chat');
 const db = require('./db/database');
 
 const app = express();
@@ -53,6 +54,7 @@ app.use((req, res, next) => {
 // Routes
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/chat', chatRoutes);
 
 // Health check (required for DigitalOcean App Platform)
 app.get('/health', (req, res) => {
@@ -72,6 +74,7 @@ app.get('/', (req, res) => {
         endpoints: {
             analytics: '/api/analytics/event',
             dashboard: '/api/dashboard/stats',
+            chat: '/api/chat/submit',
             health: '/health'
         }
     });
@@ -159,6 +162,59 @@ async function initializeDatabase() {
             }
         } catch (err) {
             console.warn('Could not insert default order set:', err.message);
+        }
+        
+        // Add new columns to existing chat_sessions table if they don't exist
+        try {
+            if (dbType === 'postgresql') {
+                // PostgreSQL: Use IF NOT EXISTS (PostgreSQL 9.6+)
+                await db.query(`
+                    DO $$ 
+                    BEGIN
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                                      WHERE table_name='chat_sessions' AND column_name='messages') THEN
+                            ALTER TABLE chat_sessions ADD COLUMN messages JSONB;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                                      WHERE table_name='chat_sessions' AND column_name='metadata') THEN
+                            ALTER TABLE chat_sessions ADD COLUMN metadata JSONB;
+                        END IF;
+                        IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+                                      WHERE table_name='chat_sessions' AND column_name='question_answers') THEN
+                            ALTER TABLE chat_sessions ADD COLUMN question_answers JSONB;
+                        END IF;
+                    END $$;
+                `);
+                console.log('✓ Verified chat_sessions columns (PostgreSQL)');
+            } else {
+                // SQLite: Try to add columns, ignore if they exist
+                try {
+                    await db.query('ALTER TABLE chat_sessions ADD COLUMN messages TEXT');
+                    console.log('✓ Added messages column');
+                } catch (err) {
+                    if (!err.message.includes('duplicate column')) {
+                        console.warn('Could not add messages column:', err.message);
+                    }
+                }
+                try {
+                    await db.query('ALTER TABLE chat_sessions ADD COLUMN metadata TEXT');
+                    console.log('✓ Added metadata column');
+                } catch (err) {
+                    if (!err.message.includes('duplicate column')) {
+                        console.warn('Could not add metadata column:', err.message);
+                    }
+                }
+                try {
+                    await db.query('ALTER TABLE chat_sessions ADD COLUMN question_answers TEXT');
+                    console.log('✓ Added question_answers column');
+                } catch (err) {
+                    if (!err.message.includes('duplicate column')) {
+                        console.warn('Could not add question_answers column:', err.message);
+                    }
+                }
+            }
+        } catch (err) {
+            console.warn('Could not add new columns to chat_sessions (they may already exist):', err.message);
         }
         
         console.log('Database initialized successfully');

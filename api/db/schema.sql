@@ -32,6 +32,9 @@ CREATE TABLE IF NOT EXISTS chat_sessions (
     end_time TIMESTAMP,
     completion_percentage DECIMAL(5,2),
     total_time_ms INTEGER,
+    messages TEXT, -- JSON stored as text
+    metadata TEXT, -- JSON stored as text
+    question_answers TEXT, -- JSON stored as text
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (order_set_id) REFERENCES order_sets(id)
 );

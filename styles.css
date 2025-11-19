@@ -1965,7 +1965,7 @@ html {
     animation: statusPulse 1.5s ease-in-out infinite;
 }
 
-.status-text {
+.call-status .status-text {
     font-size: 1.3rem;
     color: #6c757d;
     font-weight: 500;
