@@ -1396,6 +1396,21 @@ class TaxReliefChat {
             return answer;
         };
         
+        // Convert full state name to 2-letter code
+        const stateToCode = {
+            'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
+            'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'Florida': 'FL', 'Georgia': 'GA',
+            'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA',
+            'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
+            'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS', 'Missouri': 'MO',
+            'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
+            'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
+            'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+            'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT',
+            'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY'
+        };
+        const stateCode = stateToCode[answers[3]] || answers[3] || '';
+        
         // Build form data for POST request
         const formData = new URLSearchParams();
         
@@ -1408,8 +1423,8 @@ class TaxReliefChat {
         formData.append('lead[email]', answers[7] || '');
         formData.append('lead[phone1]', answers[8] || '');
         
-        // Address field (state)
-        formData.append('lead_address[state]', answers[3] || '');
+        // Address field (state as 2-letter code)
+        formData.append('lead_address[state]', stateCode);
         
         // Custom value fields
         formData.append('lead_custom_value[TaxAmount]', answers[1] || '');
