@@ -643,6 +643,28 @@ p {
     text-align: right;
 }
 
+/* Clickable phone link in chat messages */
+.chat-phone-link {
+    color: var(--primary-blue);
+    font-weight: 600;
+    text-decoration: underline;
+    display: inline-block;
+    margin-top: 0.5rem;
+}
+
+.chat-phone-link:hover {
+    color: var(--primary-blue-hover);
+    text-decoration: underline;
+}
+
+.message--agent .chat-phone-link {
+    color: var(--primary-blue);
+}
+
+.message--agent .chat-phone-link:active {
+    color: var(--primary-blue-hover);
+}
+
 /* Quick Response Buttons (in messages area) */
 .quick-response-buttons {
     display: flex;

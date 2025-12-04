@@ -993,7 +993,9 @@ class TaxReliefChat {
                     setTimeout(() => {
                         this.hideTypingIndicator();
                         setTimeout(() => {
-                            this.addAgentMessage(`In 2024 alone, the IRS forgave $163.4M in tax debt. We know how to get them to forgive yours. If you want to put a stop to the phone calls and letters from the IRS, and put an end to your tax nightmare, take the first step by giving us a call right now. One of our highly experienced agents is standing by to help you. Call us at ${phoneNumber}`);
+                            // Format phone for tel: link (remove dashes and spaces)
+                            const phoneForLink = phoneNumber.replace(/[^0-9+]/g, '');
+                            this.addAgentMessageWithHTML(`In 2024 alone, the IRS forgave $163.4M in tax debt. We know how to get them to forgive yours. If you want to put a stop to the phone calls and letters from the IRS, and put an end to your tax nightmare, take the first step by giving us a call right now. One of our highly experienced agents is standing by to help you. <a href="tel:${phoneForLink}" class="chat-phone-link">Call us at ${phoneNumber}</a>`);
                         }, 300);
                     }, 2000);
                 }, 3000);
@@ -1239,6 +1241,23 @@ class TaxReliefChat {
         this.conversationData.messages.push(messageData);
     }
     
+    addAgentMessageWithHTML(html) {
+        const message = this.createMessageElementWithHTML('agent', html);
+        this.messagesContainer.appendChild(message);
+        this.scrollToBottom();
+        
+        const messageData = {
+            type: 'agent',
+            text: html.replace(/<[^>]*>/g, ''), // Strip HTML for storage
+            timestamp: new Date().toISOString(),
+            displayTime: this.getCurrentTime(),
+            agentName: 'Michael D.'
+        };
+        
+        this.messageHistory.push({ type: 'agent', text: html.replace(/<[^>]*>/g, '') });
+        this.conversationData.messages.push(messageData);
+    }
+    
     createMessageElement(type, text) {
         const messageDiv = document.createElement('div');
         messageDiv.className = `message message--${type}`;
@@ -1257,6 +1276,42 @@ class TaxReliefChat {
         const bubble = document.createElement('div');
         bubble.className = 'message__bubble';
         bubble.textContent = text;
+        
+        const time = document.createElement('div');
+        time.className = 'message__time';
+        time.textContent = this.getCurrentTime();
+        
+        messageDiv.appendChild(avatar);
+        messageDiv.appendChild(bubble);
+        bubble.appendChild(time);
+        
+        // Animate message appearance with slight delay
+        setTimeout(() => {
+            messageDiv.style.transition = 'opacity 0.3s ease-out';
+            messageDiv.style.opacity = '1';
+        }, 50);
+        
+        return messageDiv;
+    }
+    
+    createMessageElementWithHTML(type, html) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message message--${type}`;
+        messageDiv.style.opacity = '0';
+        
+        const avatar = document.createElement('div');
+        avatar.className = 'message__avatar';
+        
+        if (type === 'agent') {
+            const avatarUrl = window.AGENT_AVATAR_URL || 'img/agent-avatar.jpg';
+            avatar.innerHTML = `<img src="${avatarUrl}" alt="Agent Avatar" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">`;
+        } else {
+            avatar.innerHTML = '<i class="fas fa-user"></i>';
+        }
+        
+        const bubble = document.createElement('div');
+        bubble.className = 'message__bubble';
+        bubble.innerHTML = html; // Use innerHTML instead of textContent
         
         const time = document.createElement('div');
         time.className = 'message__time';
