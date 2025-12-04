@@ -142,56 +142,57 @@ p {
     }
     
     .chat-hero .container {
-        padding: 0 1rem;
+        padding: 0 0.5rem;
     }
     
     .chat-hero__text {
-        padding: 0 1rem;
+        padding: 0 0.5rem;
     }
     
-    /* Reduce hero section padding on mobile to maximize chat space */
+    /* Minimize hero section on mobile to maximize chat space */
     .chat-hero {
-        padding: 0.5rem 0;
-    }
-    
-    .chat-hero__content {
-        gap: 0.5rem;
         padding: 0.25rem 0;
     }
     
-    /* Make chat window fit viewport height on mobile */
-    /* Override the base height: 60rem to use viewport-based height instead */
-    /* Use dynamic viewport height for better mobile browser support */
-    /* Account for: page header (~5rem) + hero text (~3rem) + minimal spacing = ~10rem */
-    /* Using 10rem to maximize chat space on mobile */
+    .chat-hero__content {
+        gap: 0.25rem;
+        padding: 0;
+    }
+    
+    /* Make chat window fill nearly all available viewport height on mobile */
+    /* Only account for header (~4rem) + minimal hero text (~2rem) = ~6rem */
     .chat-window {
         width: 100%;
         margin: 0;
-        height: calc(100vh - 10rem) !important; /* Override base 60rem height */
-        max-height: calc(100vh - 10rem) !important; /* Override base 60rem max-height */
+        height: calc(100vh - 6rem) !important;
+        max-height: calc(100vh - 6rem) !important;
+        min-height: calc(100vh - 8rem);
         display: flex;
         flex-direction: column;
         overflow: hidden;
         position: relative;
+        border-radius: 0.5rem;
     }
     
-    /* Use dvh (dynamic viewport height) if supported for better mobile behavior */
+    /* Use dvh (dynamic viewport height) for better mobile browser support */
     @supports (height: 100dvh) {
         .chat-window {
-            height: calc(100dvh - 9rem) !important; /* Override base 60rem height */
-            max-height: calc(100dvh - 9rem) !important; /* Override base 60rem max-height */
+            height: calc(100dvh - 5.5rem) !important;
+            max-height: calc(100dvh - 5.5rem) !important;
+            min-height: calc(100dvh - 7rem);
         }
     }
     
-    /* Further reduce hero text on mobile to maximize chat space */
+    /* Minimize hero text on mobile - just a small title */
     .chat-hero__title {
-        font-size: 1.5rem;
-        margin-bottom: 0.5rem;
+        font-size: 1.1rem;
+        margin-bottom: 0.25rem;
+        line-height: 1.2;
     }
     
+    /* Hide description on mobile to save space */
     .chat-hero__description {
-        font-size: 1.2rem;
-        margin-bottom: 0;
+        display: none;
     }
     
     /* Ensure header is fixed height and doesn't shrink */
