@@ -179,7 +179,7 @@ class TaxReliefChat {
                         this.startQuestionFlow();
                     } else {
                         // Regular welcome message
-                        this.addAgentMessage("Hello! 👋 I'm Michael from Tax Relief Experts.  If you owe taxes, we can help cut your debt by up to 90%. You're entitled to a FREE case evaluation see if you see qualify.");
+                        this.addAgentMessage("Hello! 👋 I'm Michael from Tax Relief Experts.  If you owe taxes, we can help cut your debt by up to 90%. You're entitled to a FREE case evaluation to see if you see qualify to have your debt forgiven.");
                         // Add second message after a delay
                         setTimeout(() => {
                             this.showTypingIndicator();
@@ -971,15 +971,37 @@ class TaxReliefChat {
         // Track completion
         this.trackQuestionFlowCompletion(completionPercentage, completionTime);
         
-        // Transition to normal chat or thank you message
-        setTimeout(() => {
-            this.addAgentMessage("Thank you for providing that information! Based on that info, you are eligible for a completely free case evaluation. One of our specialists will assess your situation and determine if we can qualify you for a tax settlement to eliminate up to 90% of your tax debt");
-            
-            // After 8 seconds, collapse chat and show call button
+        // Check CTA mode
+        const ctaMode = window.CTA_MODE || 'popup';
+        const phoneNumber = window.CTA_PHONE_NUMBER || '1-888-614-2994';
+        
+        if (ctaMode === 'chat') {
+            // Send next steps as chat messages
             setTimeout(() => {
-                this.showCallToAction();
-            }, 8000);
-        }, 1000);
+                this.addAgentMessage("Thank you for providing that information! Based on the info you've provided, you are eligible for a completely free case evaluation. There is ZERO payment required for this evaluation.");
+                
+                // Second message after a delay
+                setTimeout(() => {
+                    this.showTypingIndicator();
+                    setTimeout(() => {
+                        this.hideTypingIndicator();
+                        setTimeout(() => {
+                            this.addAgentMessage(`In 2024 alone, the IRS forgave $163.4M in tax debt. We know how to get them to forgive yours. If you want to put a stop to the phone calls and letters from the IRS, and put an end to your tax nightmare, take the first step by giving us a call right now. One of our highly experienced agents is standing by to help you. Call us at ${phoneNumber}`);
+                        }, 300);
+                    }, 2000);
+                }, 3000);
+            }, 1000);
+        } else {
+            // Default: Show CTA popup
+            setTimeout(() => {
+                this.addAgentMessage("Thank you for providing that information! Based on that info, you are eligible for a completely free case evaluation. One of our specialists will assess your situation and determine if we can qualify you for a tax settlement to eliminate up to 90% of your tax debt");
+                
+                // After 8 seconds, collapse chat and show call button
+                setTimeout(() => {
+                    this.showCallToAction();
+                }, 8000);
+            }, 1000);
+        }
         
         // Send complete data to API
         this.sendQuestionFlowData();
