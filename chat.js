@@ -1439,8 +1439,11 @@ class TaxReliefChat {
         formData.append('lead[test]', this.leadPostingConfig.testMode ? 'true' : 'false');
         
         // TrustedForm certificate URL (populated by TrustedForm script)
-        const trustedFormCert = document.getElementById('xxTrustedFormCertUrl');
-        formData.append('lead[service_trusted_form]', trustedFormCert ? trustedFormCert.value : '');
+        // TrustedForm creates a hidden input with name="xxTrustedFormCertUrl"
+        const trustedFormCert = document.querySelector('input[name="xxTrustedFormCertUrl"]');
+        const trustedFormValue = trustedFormCert ? trustedFormCert.value : '';
+        console.log('TrustedForm cert value:', trustedFormValue);
+        formData.append('lead[service_trusted_form]', trustedFormValue);
         
         // TCPA consent (hardcoded for now)
         formData.append('lead_consent[tcpa_consent]', 'Yes');
