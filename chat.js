@@ -1399,6 +1399,9 @@ class TaxReliefChat {
         // Build form data for POST request
         const formData = new URLSearchParams();
         
+        // Campaign code (required)
+        formData.append('campaign_code', 'PRDx180ZU_ApBqZy6xpbww');
+        
         // Required lead fields
         formData.append('lead[firstname]', firstName);
         formData.append('lead[lastname]', lastName);
