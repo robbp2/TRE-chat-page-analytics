@@ -179,14 +179,14 @@ class TaxReliefChat {
                         this.startQuestionFlow();
                     } else {
                         // Regular welcome message
-                        this.addAgentMessage("Hello! 👋 I'm Michael from Tax Relief Experts.  If you owe the IRS or the State taxes, you've come to the right place. Let's see if you qualify for cutting your tax debt by up to 90%.");
+                        this.addAgentMessage("Hello! 👋 I'm Michael from Tax Relief Experts.  If you owe taxes, we can help cut your debt by up to 90%. You're entitled to a FREE case evaluation see if you see qualify.");
                         // Add second message after a delay
                         setTimeout(() => {
                             this.showTypingIndicator();
                             setTimeout(() => {
                                 this.hideTypingIndicator();
                                 setTimeout(() => {
-                                    this.addAgentMessage("I'll need to gather some information from you to see if you qualify.  Let's get started.");
+                                    this.addAgentMessage("I'll just need some details from you to get started.");
                                     // Start question flow after second message
                                     setTimeout(() => {
                                         if (this.isInQuestionFlow && this.questionFlow.length > 0) {
