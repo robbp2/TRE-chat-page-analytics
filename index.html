@@ -88,7 +88,7 @@
                     <div class="cta-container" id="ctaContainer">
                         <div class="cta-message">
                             <h2 class="cta-title">Next Step: Claim your FREE case evaluation!</h2>
-                            <p class="cta-description">Put a <strong><u>STOP</u></strong> to the phone calls and letters from the IRS. Let us help you get rid of up to 90% of what you owe. <strong>ZERO</strong> up-front payment required for your consult.</p>
+                            <p class="cta-description">Put a <strong><u>STOP</u></strong> to the phone calls and letters from the IRS. Let us help you get rid of up to 90%* of what you owe. <strong>ZERO</strong> up-front payment required for your consult.</p>
                             </div>
                             <a href="tel:+18886142994" class="cta-call-button">
                                 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" class="w-8 h-8 primary-text-dark iconify iconify--mdi shake" preserveAspectRatio="xMidYMid meet" viewBox="0 0 24 24" style="float: left;width:40px;">
@@ -147,6 +147,7 @@
         <div class="container">
             <div class="footer__content">
                 <div class="footer__disclaimer">
+                    <p>*While we will work to negotiate up to 90% off your debt, results cannot be guaranteed and each case varies based on individual circumstances.</p>
                     <p>Tax Relief Experts provides tax resolution services. Results may vary. Not available in all states. Consult with a tax professional for personalized advice.</p>
                 </div>
                 <div class="footer__links flex-block flex-block--row flex-block--wrap flex-block--jcsb">
@@ -181,6 +182,11 @@
         
         // Analytics Configuration
         window.ANALYTICS_ENDPOINT = 'https://tre-chatbot-analytics-api-x2aka.ondigitalocean.app/api/analytics/event';
+        
+        // Lead Posting Configuration
+        window.LEAD_POST_ENDPOINT = 'https://taxreliefexperts-post.leadhoop.com/incoming/leads';
+        window.LEAD_POST_ENABLED = true;
+        window.LEAD_POST_TEST_MODE = true; // Set to false for production
         
         // Agent avatar configuration - set the path to your agent's profile picture
         window.AGENT_AVATAR_URL = 'img/agent-avatar.jpg';

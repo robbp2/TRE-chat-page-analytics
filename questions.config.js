@@ -10,29 +10,30 @@ const QUESTIONS = {
         text: "Approximately how much do you owe in taxes?",
         type: "amount", // amount, text, yesno, multiple_choice
         required: true,
+        apiField: "TaxAmount", // Maps to lead_custom_value[TaxAmount]
         validation: {
             type: "number",
             min: 0
         },
         quickResponses: [
-            "$7,500 or less",
-            "$7,500 to $9,999",
-            "$10,000 to $14,999",
-            "$15,000 to $29,999",
-            "$30,000 to $49,999",
-            "$50,000 to $74,999",
-            "$75,000 to $99,999",
-            "$100,000 or more"
+            "Less than $7,500",
+            "$7,500 - $9,999",
+            "$10,000 - $14,999",
+            "$15,000 - $29,999",
+            "$30,000 - $49,999",
+            "$50,000 - $74,999",
+            "$75,000 - $99,999",
+            "Over $100,000"
         ],
         amountRanges: [
-            { min: 0, max: 7500, label: "$7,500 or less" },
-            { min: 7500, max: 9999, label: "$7,500 to $9,999" },
-            { min: 10000, max: 14999, label: "$10,000 to $14,999" },
-            { min: 15000, max: 29999, label: "$15,000 to $29,999" },
-            { min: 30000, max: 49999, label: "$30,000 to $49,999" },
-            { min: 50000, max: 74999, label: "$50,000 to $74,999" },
-            { min: 75000, max: 99999, label: "$75,000 to $99,999" },
-            { min: 100000, max: Infinity, label: "$100,000 or more" }
+            { min: 0, max: 7499, label: "Less than $7,500" },
+            { min: 7500, max: 9999, label: "$7,500 - $9,999" },
+            { min: 10000, max: 14999, label: "$10,000 - $14,999" },
+            { min: 15000, max: 29999, label: "$15,000 - $29,999" },
+            { min: 30000, max: 49999, label: "$30,000 - $49,999" },
+            { min: 50000, max: 74999, label: "$50,000 - $74,999" },
+            { min: 75000, max: 99999, label: "$75,000 - $99,999" },
+            { min: 100000, max: Infinity, label: "Over $100,000" }
         ],
         followUp: {
             condition: "> 10000",
@@ -43,10 +44,11 @@ const QUESTIONS = {
         id: 2,
         text: "What type of tax debt do you have?",
         type: "multiple_choice",
+        apiField: "TaxType", // Maps to lead_custom_value[TaxType]
         options: [
             "Federal",
             "State",
-            "Both"
+            "Federal & State"
         ],
         required: true
     },
@@ -54,6 +56,7 @@ const QUESTIONS = {
         id: 3,
         text: "What state do you live in?",
         type: "multiple_choice",
+        apiField: "state", // Maps to lead_address[state]
         options: [
             "Alabama", "Alaska", "Arizona", "Arkansas", "California",
             "Colorado", "Connecticut", "Delaware", "Florida", "Georgia",
@@ -76,30 +79,35 @@ const QUESTIONS = {
         id: 4,
         text: "Are any of your tax returns unfiled?",
         type: "yesno",
+        apiField: "FileStatus", // Maps to lead_custom_value[FileStatus]
         required: true
     },
     5: {
         id: 5,
         text: "Are you currently employed?",
         type: "yesno",
+        apiField: "Employment", // Maps to lead_custom_value[Employment]
         required: true
     },
     6: {
         id: 6,
         text: "What is your full name?",
         type: "text",
+        apiField: "fullName", // Will be split into firstname/lastname
         required: true
     },
     7: {
         id: 7,
-        text: "What is your email address? (This will be used to send you a copy of your tax settlement agreement, never for spam.)",
+        text: "What is your email address? (This will be used to send you a copy of our agreement, never for spam.)",
         type: "text",
+        apiField: "email", // Maps to lead[email]
         required: true
     },
     8: {
         id: 8,
         text: "What is your phone number?",
         type: "text",
+        apiField: "phone1", // Maps to lead[phone1]
         required: true
     }
 };

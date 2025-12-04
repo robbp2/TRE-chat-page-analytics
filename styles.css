@@ -162,13 +162,13 @@ p {
     /* Make chat window fit viewport height on mobile */
     /* Override the base height: 60rem to use viewport-based height instead */
     /* Use dynamic viewport height for better mobile browser support */
-    /* Account for: page header (~5rem) + hero text (~4rem) + spacing (~2rem) = ~11rem */
-    /* Using 16rem to be safe and ensure input area is always visible */
+    /* Account for: page header (~5rem) + hero text (~3rem) + minimal spacing = ~10rem */
+    /* Using 10rem to maximize chat space on mobile */
     .chat-window {
         width: 100%;
         margin: 0;
-        height: calc(100vh - 16rem) !important; /* Override base 60rem height */
-        max-height: calc(100vh - 16rem) !important; /* Override base 60rem max-height */
+        height: calc(100vh - 10rem) !important; /* Override base 60rem height */
+        max-height: calc(100vh - 10rem) !important; /* Override base 60rem max-height */
         display: flex;
         flex-direction: column;
         overflow: hidden;
@@ -178,8 +178,8 @@ p {
     /* Use dvh (dynamic viewport height) if supported for better mobile behavior */
     @supports (height: 100dvh) {
         .chat-window {
-            height: calc(100dvh - 15rem) !important; /* Override base 60rem height */
-            max-height: calc(100dvh - 15rem) !important; /* Override base 60rem max-height */
+            height: calc(100dvh - 9rem) !important; /* Override base 60rem height */
+            max-height: calc(100dvh - 9rem) !important; /* Override base 60rem max-height */
         }
     }
     
@@ -777,7 +777,7 @@ p {
         flex-direction: column;
         width: 100%;
         min-height: 0;
-        max-height: calc(100vh - 18rem); /* Constrain wrapper height */
+        max-height: calc(100vh - 12rem); /* Constrain wrapper height */
     }
     
     /* Make the scrollable container have a fixed max-height to enable scrolling */

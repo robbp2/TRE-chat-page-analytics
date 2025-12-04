@@ -24,6 +24,10 @@ class TaxReliefChat {
         this.isTyping = false;
         this.messageQueue = [];
         
+        // User IP address (fetched asynchronously)
+        this.userIpAddress = null;
+        this.fetchUserIpAddress();
+        
         // API Configuration
         this.apiConfig = {
             endpoint: window.API_ENDPOINT || 'https://api.example.com/chat/submit', // Can be set via window.API_ENDPOINT
@@ -31,6 +35,14 @@ class TaxReliefChat {
             sendOnUnload: true, // Send data when user leaves page
             sendAfterEachMessage: false, // Set to true to send after each message exchange
             batchSize: 5 // Send after this many messages if batch mode
+        };
+        
+        // Lead Posting Configuration
+        this.leadPostingConfig = {
+            endpoint: window.LEAD_POST_ENDPOINT || 'https://taxreliefexperts-post.leadhoop.com/incoming/leads',
+            enabled: window.LEAD_POST_ENABLED !== false, // Default to true
+            testMode: window.LEAD_POST_TEST_MODE || false, // Set to true for test posts
+            mediaType: 'noncallcenter'
         };
         
         // Question flow properties
@@ -971,6 +983,32 @@ class TaxReliefChat {
         
         // Send complete data to API
         this.sendQuestionFlowData();
+        
+        // Post lead to LeadHoop endpoint
+        this.postLeadToEndpoint().then(result => {
+            if (result.success) {
+                console.log('Lead successfully posted to LeadHoop');
+                // Track successful lead post
+                this.sendAnalyticsEvent('lead_posted', {
+                    success: true,
+                    sessionId: this.conversationData.sessionId
+                });
+            } else {
+                console.warn('Lead post was not successful:', result);
+                // Track failed lead post
+                this.sendAnalyticsEvent('lead_post_failed', {
+                    success: false,
+                    reason: result.reason || result.error || 'unknown',
+                    sessionId: this.conversationData.sessionId
+                });
+            }
+        }).catch(error => {
+            console.error('Lead posting error:', error);
+            this.sendAnalyticsEvent('lead_post_error', {
+                error: error.message,
+                sessionId: this.conversationData.sessionId
+            });
+        });
     }
     
     showCallToAction() {
@@ -1292,6 +1330,123 @@ class TaxReliefChat {
     // ============================================
     // API INTEGRATION METHODS
     // ============================================
+    
+    // Fetch user's IP address using ipify API
+    async fetchUserIpAddress() {
+        try {
+            const response = await fetch('https://api.ipify.org?format=json');
+            if (response.ok) {
+                const data = await response.json();
+                this.userIpAddress = data.ip;
+                console.log('User IP detected:', this.userIpAddress);
+            }
+        } catch (error) {
+            console.warn('Could not fetch IP address:', error);
+            // Fallback: try alternative service
+            try {
+                const fallbackResponse = await fetch('https://ipapi.co/json/');
+                if (fallbackResponse.ok) {
+                    const fallbackData = await fallbackResponse.json();
+                    this.userIpAddress = fallbackData.ip;
+                    console.log('User IP detected (fallback):', this.userIpAddress);
+                }
+            } catch (fallbackError) {
+                console.warn('Fallback IP detection also failed:', fallbackError);
+            }
+        }
+    }
+    
+    // Post lead data to LeadHoop endpoint
+    async postLeadToEndpoint() {
+        if (!this.leadPostingConfig.enabled) {
+            console.log('Lead posting is disabled');
+            return { success: false, reason: 'disabled' };
+        }
+        
+        // Extract answers from question flow
+        const answers = {};
+        this.questionFlow.forEach(q => {
+            if (q.answered && q.answer) {
+                answers[q.questionId] = q.answer;
+            }
+        });
+        
+        // Map question answers to API fields
+        // Question 1: TaxAmount
+        // Question 2: TaxType
+        // Question 3: State
+        // Question 4: FileStatus (yes/no -> Yes/No)
+        // Question 5: Employment (yes/no -> Yes/No)
+        // Question 6: Full Name -> firstname, lastname
+        // Question 7: Email
+        // Question 8: Phone
+        
+        // Parse full name into first and last name
+        const fullName = answers[6] || '';
+        const nameParts = fullName.trim().split(/\s+/);
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        
+        // Normalize yes/no answers to Yes/No
+        const normalizeYesNo = (answer) => {
+            if (!answer) return '';
+            const lower = answer.toLowerCase();
+            if (lower === 'yes' || lower === 'y' || lower === 'true') return 'Yes';
+            if (lower === 'no' || lower === 'n' || lower === 'false') return 'No';
+            return answer;
+        };
+        
+        // Build form data for POST request
+        const formData = new URLSearchParams();
+        
+        // Required lead fields
+        formData.append('lead[firstname]', firstName);
+        formData.append('lead[lastname]', lastName);
+        formData.append('lead[email]', answers[7] || '');
+        formData.append('lead[phone1]', answers[8] || '');
+        
+        // Address field (state)
+        formData.append('lead_address[state]', answers[3] || '');
+        
+        // Custom value fields
+        formData.append('lead_custom_value[TaxAmount]', answers[1] || '');
+        formData.append('lead_custom_value[TaxType]', answers[2] || '');
+        formData.append('lead_custom_value[Employment]', normalizeYesNo(answers[5]));
+        formData.append('lead_custom_value[FileStatus]', normalizeYesNo(answers[4]));
+        
+        // System fields
+        formData.append('lead[ip]', this.userIpAddress || '');
+        formData.append('lead[signup_url]', window.location.href);
+        formData.append('lead[media_type]', this.leadPostingConfig.mediaType);
+        formData.append('lead[test]', this.leadPostingConfig.testMode ? 'true' : 'false');
+        
+        console.log('Posting lead data:', Object.fromEntries(formData));
+        
+        try {
+            const response = await fetch(this.leadPostingConfig.endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: formData.toString()
+            });
+            
+            const responseText = await response.text();
+            console.log('Lead post response:', responseText);
+            
+            // Check for success response
+            if (responseText.includes('"status":"success"')) {
+                console.log('Lead posted successfully!');
+                return { success: true, response: responseText };
+            } else {
+                console.warn('Lead post did not return success:', responseText);
+                return { success: false, response: responseText };
+            }
+        } catch (error) {
+            console.error('Error posting lead:', error);
+            return { success: false, error: error.message };
+        }
+    }
     
     setAgentAvatar() {
         // Set the agent avatar image in the header if configured
