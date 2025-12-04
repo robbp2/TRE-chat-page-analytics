@@ -342,6 +342,11 @@ class TaxReliefChat {
         this.chatInput.value = '';
         this.chatInput.style.display = 'block';
         
+        // Reset input attributes before setting new ones
+        this.chatInput.removeAttribute('inputmode');
+        this.chatInput.removeAttribute('pattern');
+        this.chatInput.removeAttribute('maxLength');
+        
         // Show appropriate input based on question type
         switch(questionData.type) {
             case 'yesno':
@@ -353,14 +358,16 @@ class TaxReliefChat {
             case 'amount':
                 this.chatInput.placeholder = 'Enter amount (e.g., 5000)';
                 this.chatInput.setAttribute('inputmode', 'numeric');
-                this.chatInput.pattern = '[0-9]*';
+                this.chatInput.setAttribute('pattern', '[0-9]*');
                 break;
             case 'text':
                 this.chatInput.placeholder = 'Type your answer...';
+                this.chatInput.setAttribute('inputmode', 'text');
                 this.chatInput.maxLength = questionData.maxLength || 500;
                 break;
             default:
                 this.chatInput.placeholder = 'Type your answer...';
+                this.chatInput.setAttribute('inputmode', 'text');
         }
         
         // Focus input
