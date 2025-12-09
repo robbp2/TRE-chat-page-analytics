@@ -103,9 +103,9 @@ class TaxReliefChat {
                 "We believe in transparency. We offer a free consultation first, and then we'll discuss our fees based on your specific needs. Many of our clients find our services very affordable compared to what they save."
             ],
             contact: [
-                "I'd be happy to help you get started! You can call us at 1-800-123-4567, or I can help you schedule a free consultation right now. What works best for you?",
-                "Great! The best way to get started is with a free consultation. Would you like me to help you schedule one? You can also call us directly at 1-800-123-4567.",
-                "Perfect! We can schedule a free consultation to review your case. Would you like to set that up now, or would you prefer to call us at 1-800-123-4567?"
+                "I'd be happy to help you get started! You can call us at 1-833-752-3057, or I can help you schedule a free consultation right now. What works best for you?",
+                "Great! The best way to get started is with a free consultation. Would you like me to help you schedule one? You can also call us directly at 1-833-752-3057.",
+                "Perfect! We can schedule a free consultation to review your case. Would you like to set that up now, or would you prefer to call us at 1-833-752-3057?"
             ],
             default: [
                 "I understand. Let me help you with that. Can you tell me a bit more about your situation?",
@@ -980,7 +980,7 @@ class TaxReliefChat {
         
         // Check CTA mode
         const ctaMode = window.CTA_MODE || 'popup';
-        const phoneNumber = window.CTA_PHONE_NUMBER || '1-888-614-2994';
+        const phoneNumber = window.CTA_PHONE_NUMBER || '1-833-752-3057';
         
         if (ctaMode === 'chat') {
             // Send next steps as chat messages
