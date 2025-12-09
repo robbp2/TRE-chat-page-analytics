@@ -37,6 +37,11 @@ class TaxReliefChat {
             batchSize: 5 // Send after this many messages if batch mode
         };
         
+        // URL parameters (for subid tracking)
+        const urlParams = new URLSearchParams(window.location.search);
+        this.subid = urlParams.get('s1') || '';
+        this.subid2 = urlParams.get('s2') || '';
+        
         // Lead Posting Configuration
         this.leadPostingConfig = {
             endpoint: window.LEAD_POST_ENDPOINT || 'https://taxreliefexperts-post.leadhoop.com/incoming/leads',
@@ -1521,6 +1526,10 @@ class TaxReliefChat {
         formData.append('lead[signup_url]', window.location.href);
         formData.append('lead[media_type]', this.leadPostingConfig.mediaType);
         formData.append('lead[test]', this.leadPostingConfig.testMode ? 'true' : 'false');
+        
+        // Subid tracking from URL params
+        formData.append('subid', this.subid || '');
+        formData.append('subid2', this.subid2 || '');
         
         // TrustedForm certificate URL (populated by TrustedForm script)
         // TrustedForm creates a hidden input with name="xxTrustedFormCertUrl"
