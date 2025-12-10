@@ -6,9 +6,22 @@
 const db = require('../db/database');
 
 class DashboardService {
-    async getDashboardStats(days = 30) {
+    // Helper to calculate the "since" date
+    // When days=1, use start of today (midnight) instead of "1 day ago"
+    getSinceDate(days) {
         const sinceDate = new Date();
-        sinceDate.setDate(sinceDate.getDate() - days);
+        if (days === 1) {
+            // For "Today", set to start of today (midnight)
+            sinceDate.setHours(0, 0, 0, 0);
+        } else {
+            // For other periods, subtract days
+            sinceDate.setDate(sinceDate.getDate() - days);
+        }
+        return sinceDate;
+    }
+    
+    async getDashboardStats(days = 30) {
+        const sinceDate = this.getSinceDate(days);
         
         const [sessions, events, dropoffs] = await Promise.all([
             db.query(
@@ -41,8 +54,7 @@ class DashboardService {
     }
     
     async getOrderSetStats(days = 30) {
-        const sinceDate = new Date();
-        sinceDate.setDate(sinceDate.getDate() - days);
+        const sinceDate = this.getSinceDate(days);
         
         const result = await db.query(
             `SELECT 
@@ -77,8 +89,7 @@ class DashboardService {
     }
     
     async getDropoffStats(days = 30) {
-        const sinceDate = new Date();
-        sinceDate.setDate(sinceDate.getDate() - days);
+        const sinceDate = this.getSinceDate(days);
         
         const result = await db.query(
             `SELECT 
@@ -105,8 +116,7 @@ class DashboardService {
     }
     
     async getQuestionStats(days = 30) {
-        const sinceDate = new Date();
-        sinceDate.setDate(sinceDate.getDate() - days);
+        const sinceDate = this.getSinceDate(days);
         
         const result = await db.query(
             `SELECT 
@@ -137,8 +147,7 @@ class DashboardService {
     }
     
     async getCompletionRates(days = 30) {
-        const sinceDate = new Date();
-        sinceDate.setDate(sinceDate.getDate() - days);
+        const sinceDate = this.getSinceDate(days);
         
         const result = await db.query(
             `SELECT 
