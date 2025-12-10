@@ -8,7 +8,8 @@
     "dev": "nodemon server.js",
     "init-db": "node scripts/init-database.js",
     "init-postgresql": "node scripts/init-postgresql.js",
-    "update-fk": "node scripts/update-foreign-key.js"
+    "update-fk": "node scripts/update-foreign-key.js",
+    "diagnose": "node scripts/diagnose-sessions.js"
   },
   "keywords": [
     "analytics",
