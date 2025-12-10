@@ -258,7 +258,14 @@ class AnalyticsDashboard {
             this.charts.completion.destroy();
         }
         
-        if (orderSets && orderSets.length > 0) {
+        const hasOrderSets = Array.isArray(orderSets) && orderSets.length > 0;
+        const hasCompletionRates = completionRates && (
+            (completionRates.high || 0) +
+            (completionRates.medium || 0) +
+            (completionRates.low || 0)
+        ) > 0;
+        
+        if (hasOrderSets) {
             this.charts.completion = new Chart(ctx1, {
                 type: 'bar',
                 data: {
@@ -292,6 +299,84 @@ class AnalyticsDashboard {
                                 const total = s.totalSessions || 1;
                                 return (s.lowCompletionCount / total * 100) || 0;
                             }),
+                            backgroundColor: 'rgba(239, 68, 68, 0.9)',
+                            borderColor: 'rgba(239, 68, 68, 1)',
+                            borderWidth: 2,
+                            borderRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                font: { family: 'Poppins', size: 12 },
+                                padding: 15,
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 12,
+                            titleFont: { family: 'Poppins', size: 14, weight: '600' },
+                            bodyFont: { family: 'Poppins', size: 13 },
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: ${context.parsed.y.toFixed(1)}%`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            stacked: true,
+                            grid: { display: false },
+                            ticks: { font: { family: 'Poppins', size: 12 } }
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            max: 100,
+                            grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                            ticks: {
+                                callback: function(value) { return value + '%'; },
+                                font: { family: 'Poppins', size: 12 }
+                            }
+                        }
+                    }
+                }
+            });
+        } else if (hasCompletionRates) {
+            const total = (completionRates.high || 0) + (completionRates.medium || 0) + (completionRates.low || 0);
+            const pct = (value) => total > 0 ? (value / total * 100) : 0;
+            
+            this.charts.completion = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: ['All Sessions'],
+                    datasets: [
+                        {
+                            label: 'High Completion (≥90%)',
+                            data: [pct(completionRates.high || 0)],
+                            backgroundColor: 'rgba(74, 222, 128, 0.9)',
+                            borderColor: 'rgba(74, 222, 128, 1)',
+                            borderWidth: 2,
+                            borderRadius: 6
+                        },
+                        {
+                            label: 'Medium Completion (50-89%)',
+                            data: [pct(completionRates.medium || 0)],
+                            backgroundColor: 'rgba(234, 195, 68, 0.9)',
+                            borderColor: 'rgba(234, 195, 68, 1)',
+                            borderWidth: 2,
+                            borderRadius: 6
+                        },
+                        {
+                            label: 'Low Completion (<50%)',
+                            data: [pct(completionRates.low || 0)],
                             backgroundColor: 'rgba(239, 68, 68, 0.9)',
                             borderColor: 'rgba(239, 68, 68, 1)',
                             borderWidth: 2,
