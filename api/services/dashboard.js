@@ -111,7 +111,7 @@ class DashboardService {
         }
         
         // Calculate drop-offs dynamically from question progression
-        // Count sessions that answered at least one question but didn't complete all questions
+        // Count sessions that didn't complete all questions (including those that never answered any)
         const dropoffData = await db.query(
             `SELECT 
                 cs.id as session_id,
@@ -120,8 +120,7 @@ class DashboardService {
             FROM chat_sessions cs
             LEFT JOIN question_events qe ON cs.id = qe.session_id AND qe.created_at >= ?
             WHERE cs.created_at >= ?
-            GROUP BY cs.id, cs.order_set_id
-            HAVING COUNT(DISTINCT CASE WHEN qe.event_type = 'answered' THEN qe.question_id END) > 0`,
+            GROUP BY cs.id, cs.order_set_id`,
             [sinceDate, sinceDate]
         );
         
@@ -162,12 +161,13 @@ class DashboardService {
             });
         }
         
-        // Count sessions that didn't complete (answered < total questions)
+        // Count sessions that didn't complete (answered < total questions, including 0 answered)
         let totalDropoffs = 0;
         dropoffData.rows.forEach(row => {
             const answered = parseInt(row.questions_answered) || 0;
             const total = dropoffOrderSetCounts[row.order_set_id] || 8;
-            if (answered > 0 && answered < total) {
+            // Include sessions that answered 0 questions (never started) or answered some but not all
+            if (answered < total) {
                 totalDropoffs++;
             }
         });
@@ -358,6 +358,7 @@ class DashboardService {
         }
         
         // Calculate drop-offs: find where a session answered question N but not N+1
+        // Also include sessions that never answered any questions (drop-off at question 1)
         const dropoffMap = {};
         
         Object.values(sessionMap).forEach(session => {
@@ -365,12 +366,6 @@ class DashboardService {
             if (expectedOrder.length === 0) return; // Skip if no order set data
             
             const answeredQuestions = session.questions.map(q => q.questionIndex).sort((a, b) => a - b);
-            
-            // Only process sessions that answered at least one question
-            if (answeredQuestions.length === 0) return;
-            
-            // Find the highest answered question index
-            const maxAnsweredIndex = Math.max(...answeredQuestions);
             const answeredCount = answeredQuestions.length;
             const totalExpected = expectedOrder.length;
             
@@ -382,12 +377,18 @@ class DashboardService {
             let dropoffIndex = -1;
             let dropoffQuestionId = null;
             
-            // Check each expected question index to find the first unanswered one
-            for (let i = 0; i < totalExpected; i++) {
-                if (!answeredQuestions.includes(i)) {
-                    dropoffIndex = i;
-                    dropoffQuestionId = expectedOrder[i];
-                    break;
+            // If user never answered any questions, drop-off is at question 1 (index 0)
+            if (answeredCount === 0) {
+                dropoffIndex = 0;
+                dropoffQuestionId = expectedOrder[0];
+            } else {
+                // Check each expected question index to find the first unanswered one
+                for (let i = 0; i < totalExpected; i++) {
+                    if (!answeredQuestions.includes(i)) {
+                        dropoffIndex = i;
+                        dropoffQuestionId = expectedOrder[i];
+                        break;
+                    }
                 }
             }
             
@@ -406,6 +407,7 @@ class DashboardService {
                 }
                 
                 // Calculate completion at drop-off (percentage of questions answered)
+                // For users who never answered, completion is 0%
                 const completionAtDropoff = (answeredCount / totalExpected) * 100;
                 dropoffMap[key].dropoffCount++;
                 dropoffMap[key].totalCompletion += completionAtDropoff;
