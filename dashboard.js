@@ -427,6 +427,50 @@ class AnalyticsDashboard {
                     }
                 }
             });
+        } else {
+            // Render empty chart with "No data" message
+            const noDataPlugin = {
+                id: 'noDataPlugin',
+                beforeDraw: (chart) => {
+                    const ctx = chart.ctx;
+                    const width = chart.width;
+                    const height = chart.height;
+                    ctx.restore();
+                    ctx.font = '14px Poppins';
+                    ctx.fillStyle = '#999';
+                    ctx.textBaseline = 'middle';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('No completion data for this period', width / 2, height / 2);
+                    ctx.save();
+                }
+            };
+            
+            this.charts.completion = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: ['No Data'],
+                    datasets: [{
+                        label: 'No completion data available',
+                        data: [0],
+                        backgroundColor: 'rgba(200, 200, 200, 0.3)',
+                        borderColor: 'rgba(200, 200, 200, 0.5)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    scales: {
+                        x: { display: false },
+                        y: { display: false }
+                    }
+                },
+                plugins: [noDataPlugin]
+            });
         }
         
         // Pie chart
@@ -486,7 +530,85 @@ class AnalyticsDashboard {
                         }
                     }
                 });
+            } else {
+                // Render empty pie chart with "No data" message
+                const noDataPlugin = {
+                    id: 'noDataPlugin',
+                    beforeDraw: (chart) => {
+                        const ctx = chart.ctx;
+                        const width = chart.width;
+                        const height = chart.height;
+                        ctx.restore();
+                        ctx.font = '14px Poppins';
+                        ctx.fillStyle = '#999';
+                        ctx.textBaseline = 'middle';
+                        ctx.textAlign = 'center';
+                        ctx.fillText('No data available', width / 2, height / 2);
+                        ctx.save();
+                    }
+                };
+                
+                this.charts.completionPie = new Chart(ctx2, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['No Data'],
+                        datasets: [{
+                            data: [1],
+                            backgroundColor: ['rgba(200, 200, 200, 0.3)'],
+                            borderColor: '#ffffff',
+                            borderWidth: 3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { enabled: false }
+                        }
+                    },
+                    plugins: [noDataPlugin]
+                });
             }
+        } else {
+            // Render empty pie chart if no completionRates data
+            const noDataPlugin = {
+                id: 'noDataPlugin',
+                beforeDraw: (chart) => {
+                    const ctx = chart.ctx;
+                    const width = chart.width;
+                    const height = chart.height;
+                    ctx.restore();
+                    ctx.font = '14px Poppins';
+                    ctx.fillStyle = '#999';
+                    ctx.textBaseline = 'middle';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('No data available', width / 2, height / 2);
+                    ctx.save();
+                }
+            };
+            
+            this.charts.completionPie = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: ['No Data'],
+                    datasets: [{
+                        data: [1],
+                        backgroundColor: ['rgba(200, 200, 200, 0.3)'],
+                        borderColor: '#ffffff',
+                        borderWidth: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    }
+                },
+                plugins: [noDataPlugin]
+            });
         }
     }
     
@@ -528,7 +650,49 @@ class AnalyticsDashboard {
         }
         
         if (!dropoffs || dropoffs.length === 0) {
-            // Show a message if no drop-off data
+            // Render empty chart with "No data" message
+            const noDataPlugin = {
+                id: 'noDataPlugin',
+                beforeDraw: (chart) => {
+                    const ctx = chart.ctx;
+                    const width = chart.width;
+                    const height = chart.height;
+                    ctx.restore();
+                    ctx.font = '14px Poppins';
+                    ctx.fillStyle = '#999';
+                    ctx.textBaseline = 'middle';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('No drop-off data for this period', width / 2, height / 2);
+                    ctx.save();
+                }
+            };
+            
+            this.charts.dropoff = new Chart(ctx2d, {
+                type: 'bar',
+                data: {
+                    labels: ['No Data'],
+                    datasets: [{
+                        label: 'No drop-off data available',
+                        data: [0],
+                        backgroundColor: 'rgba(200, 200, 200, 0.3)',
+                        borderColor: 'rgba(200, 200, 200, 0.5)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: { enabled: false }
+                    },
+                    scales: {
+                        x: { display: false },
+                        y: { display: false }
+                    }
+                },
+                plugins: [noDataPlugin]
+            });
             return;
         }
         
