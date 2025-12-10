@@ -23,12 +23,10 @@ class DashboardService {
     async getDashboardStats(days = 30) {
         const sinceDate = this.getSinceDate(days);
         
-        const [sessions, events, dropoffs] = await Promise.all([
+        const [sessions, events, dropoffs, completionData] = await Promise.all([
             db.query(
                 `SELECT COUNT(*) as total, 
-                        AVG(CASE WHEN completion_percentage IS NOT NULL THEN completion_percentage END) as avg_completion,
-                        AVG(total_time_ms) as avg_time,
-                        COUNT(CASE WHEN completion_percentage IS NOT NULL THEN 1 END) as sessions_with_completion
+                        AVG(total_time_ms) as avg_time
                  FROM chat_sessions 
                  WHERE created_at >= ?`,
                 [sinceDate]
@@ -42,12 +40,84 @@ class DashboardService {
                 `SELECT COUNT(*) as total FROM dropoff_points 
                  WHERE created_at >= ?`,
                 [sinceDate]
+            ),
+            // Calculate completion percentage dynamically from question_events
+            // Count answered questions per session
+            db.query(
+                `SELECT 
+                    cs.id as session_id,
+                    cs.order_set_id,
+                    COUNT(DISTINCT CASE WHEN qe.event_type = 'answered' THEN qe.question_id END) as questions_answered
+                FROM chat_sessions cs
+                LEFT JOIN question_events qe ON cs.id = qe.session_id AND qe.created_at >= ?
+                WHERE cs.created_at >= ?
+                GROUP BY cs.id, cs.order_set_id`,
+                [sinceDate, sinceDate]
             )
         ]);
         
+        // Calculate average completion from dynamic data
+        // Get order set question counts to calculate accurate completion percentages
+        let avgCompletion = 0;
+        if (completionData.rows.length > 0) {
+            // Get order set question counts
+            const orderSetIds = [...new Set(completionData.rows.map(r => r.order_set_id).filter(Boolean))];
+            const orderSetCounts = {};
+            
+            if (orderSetIds.length > 0) {
+                // Build query with proper placeholders for the database type
+                const dbType = process.env.DB_TYPE || 'sqlite';
+                let query;
+                let params;
+                
+                if (dbType === 'postgresql') {
+                    // PostgreSQL: use ANY with array
+                    query = `SELECT id, question_order FROM order_sets WHERE id = ANY($1::text[])`;
+                    params = [orderSetIds];
+                } else {
+                    // SQLite: use IN with placeholders
+                    const placeholders = orderSetIds.map(() => '?').join(',');
+                    query = `SELECT id, question_order FROM order_sets WHERE id IN (${placeholders})`;
+                    params = orderSetIds;
+                }
+                
+                const orderSetsResult = await db.query(query, params);
+                orderSetsResult.rows.forEach(row => {
+                    // Handle both PostgreSQL array and JSON array formats
+                    let questionCount = 8; // default
+                    if (row.question_order) {
+                        if (Array.isArray(row.question_order)) {
+                            questionCount = row.question_order.length;
+                        } else if (typeof row.question_order === 'string') {
+                            try {
+                                const parsed = JSON.parse(row.question_order);
+                                questionCount = Array.isArray(parsed) ? parsed.length : 8;
+                            } catch {
+                                questionCount = 8;
+                            }
+                        }
+                    }
+                    orderSetCounts[row.id] = questionCount;
+                });
+            }
+            
+            const completionPercentages = completionData.rows
+                .map(row => {
+                    const answered = parseInt(row.questions_answered) || 0;
+                    const total = orderSetCounts[row.order_set_id] || 8; // default to 8 questions
+                    return total > 0 ? (answered / total) * 100 : 0;
+                })
+                .filter(pct => !isNaN(pct) && isFinite(pct));
+            
+            if (completionPercentages.length > 0) {
+                const sum = completionPercentages.reduce((a, b) => a + b, 0);
+                avgCompletion = sum / completionPercentages.length;
+            }
+        }
+        
         return {
             totalSessions: sessions.rows[0]?.total || 0,
-            avgCompletion: parseFloat(sessions.rows[0]?.avg_completion || 0),
+            avgCompletion: parseFloat(avgCompletion.toFixed(2)),
             avgTime: parseFloat(sessions.rows[0]?.avg_time || 0),
             totalEvents: events.rows[0]?.total || 0,
             totalDropoffs: dropoffs.rows[0]?.total || 0
