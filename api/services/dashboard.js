@@ -193,22 +193,24 @@ class DashboardService {
         const sinceDate = this.getSinceDate(days);
         
         // Start from chat_sessions to ensure ALL sessions are accounted for
-        // Group by order_set_id, handling NULL/empty values as 'unassigned'
-        // Use CASE statement for better SQLite compatibility
+        // Use subquery to normalize order_set_id first, then group
         const sessionsByOrderSet = await db.query(
             `SELECT 
-                CASE 
-                    WHEN cs.order_set_id IS NULL OR cs.order_set_id = '' THEN 'unassigned'
-                    ELSE cs.order_set_id
-                END as order_set_id,
-                COUNT(DISTINCT cs.id) as total_sessions,
-                AVG(cs.total_time_ms) as avg_time_ms
-            FROM chat_sessions cs
-            WHERE cs.created_at >= ?
-            GROUP BY CASE 
-                WHEN cs.order_set_id IS NULL OR cs.order_set_id = '' THEN 'unassigned'
-                ELSE cs.order_set_id
-            END`,
+                normalized_order_set_id as order_set_id,
+                COUNT(*) as total_sessions,
+                AVG(total_time_ms) as avg_time_ms
+            FROM (
+                SELECT 
+                    id,
+                    CASE 
+                        WHEN order_set_id IS NULL OR order_set_id = '' THEN 'unassigned'
+                        ELSE order_set_id
+                    END as normalized_order_set_id,
+                    total_time_ms
+                FROM chat_sessions
+                WHERE created_at >= ?
+            ) normalized
+            GROUP BY normalized_order_set_id`,
             [sinceDate]
         );
         
