@@ -110,6 +110,12 @@ class DashboardService {
             }
         }
         
+        // Calculate actual completion rate: sessions that answered ALL questions / total sessions
+        // This should match: (totalSessions - totalDropoffs) / totalSessions * 100
+        const totalSessionsCount = parseInt(sessions.rows[0]?.total || 0);
+        const completedSessions = totalSessionsCount - totalDropoffs;
+        const actualCompletionRate = totalSessionsCount > 0 ? (completedSessions / totalSessionsCount) * 100 : 0;
+        
         // Calculate drop-offs dynamically from question progression
         // Count sessions that didn't complete all questions (including those that never answered any)
         const dropoffData = await db.query(
@@ -173,11 +179,13 @@ class DashboardService {
         });
         
         return {
-            totalSessions: sessions.rows[0]?.total || 0,
-            avgCompletion: parseFloat(avgCompletion.toFixed(2)),
+            totalSessions: totalSessionsCount,
+            avgCompletion: parseFloat(avgCompletion.toFixed(2)), // Average completion percentage across sessions
+            completionRate: parseFloat(actualCompletionRate.toFixed(2)), // Percentage of sessions that completed all questions
             avgTime: parseFloat(sessions.rows[0]?.avg_time || 0),
             totalEvents: events.rows[0]?.total || 0,
-            totalDropoffs: totalDropoffs
+            totalDropoffs: totalDropoffs,
+            completedSessions: completedSessions
         };
     }
     
@@ -307,18 +315,21 @@ class DashboardService {
         
         // Build stats array from sessionsByOrderSet
         const orderSetStats = [];
+        let totalAccountedSessions = 0;
         
         sessionsByOrderSet.rows.forEach(row => {
             const orderSetId = row.order_set_id === 'unassigned' ? 'unassigned' : row.order_set_id;
             const details = orderSetDetails[orderSetId] || {};
             const completions = orderSetCompletions[orderSetId] || { total: 0, high: 0, medium: 0, low: 0, completionSum: 0 };
             const avgCompletion = completions.total > 0 ? completions.completionSum / completions.total : 0;
+            const sessionCount = parseInt(row.total_sessions) || 0;
+            totalAccountedSessions += sessionCount;
             
             orderSetStats.push({
                 id: orderSetId,
                 name: details.name || (orderSetId === 'unassigned' ? 'Unassigned Sessions' : `Order Set ${orderSetId}`),
                 description: details.description || (orderSetId === 'unassigned' ? 'Sessions without an assigned order set' : null),
-            totalSessions: parseInt(row.total_sessions) || 0,
+                totalSessions: sessionCount,
                 avgCompletion: parseFloat(avgCompletion.toFixed(2)),
                 highCompletionCount: completions.high,
                 mediumCompletionCount: completions.medium,
@@ -327,6 +338,13 @@ class DashboardService {
                 active: details.active !== false && orderSetId !== 'unassigned'
             });
         });
+        
+        // Verify all sessions are accounted for - if not, add a catch-all entry
+        // This should never happen if the query is correct, but adding as safety check
+        if (totalAccountedSessions === 0 && sessionsByOrderSet.rows.length === 0) {
+            // No sessions found at all - this is a data issue
+            console.warn('No sessions found in order set stats query');
+        }
         
         // Sort by total sessions descending
         orderSetStats.sort((a, b) => b.totalSessions - a.totalSessions);

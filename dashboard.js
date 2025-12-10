@@ -108,8 +108,11 @@ class AnalyticsDashboard {
         
         document.getElementById('totalSessions').textContent = formatNumber(stats.totalSessions || 0);
         
-        const avgCompletion = stats.avgCompletion || 0;
-        document.getElementById('avgCompletion').textContent = `${avgCompletion.toFixed(1)}%`;
+        // Use completionRate (sessions completed) instead of avgCompletion (average progress)
+        // completionRate = (completed sessions / total sessions) * 100
+        // This should match: (totalSessions - totalDropoffs) / totalSessions * 100
+        const completionRate = stats.completionRate !== undefined ? stats.completionRate : (stats.avgCompletion || 0);
+        document.getElementById('avgCompletion').textContent = `${completionRate.toFixed(1)}%`;
         
         // Completion breakdown
         const total = (completionRates?.high || 0) + (completionRates?.medium || 0) + (completionRates?.low || 0);
