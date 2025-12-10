@@ -23,7 +23,7 @@ class DashboardService {
     async getDashboardStats(days = 30) {
         const sinceDate = this.getSinceDate(days);
         
-        const [sessions, events, dropoffs, completionData] = await Promise.all([
+        const [sessions, events, completionData] = await Promise.all([
             db.query(
                 `SELECT COUNT(*) as total, 
                         AVG(total_time_ms) as avg_time
@@ -33,11 +33,6 @@ class DashboardService {
             ),
             db.query(
                 `SELECT COUNT(*) as total FROM question_events 
-                 WHERE created_at >= ?`,
-                [sinceDate]
-            ),
-            db.query(
-                `SELECT COUNT(*) as total FROM dropoff_points 
                  WHERE created_at >= ?`,
                 [sinceDate]
             ),
@@ -115,48 +110,175 @@ class DashboardService {
             }
         }
         
+        // Calculate drop-offs dynamically from question progression
+        // Count sessions that answered at least one question but didn't complete all questions
+        const dropoffData = await db.query(
+            `SELECT 
+                cs.id as session_id,
+                cs.order_set_id,
+                COUNT(DISTINCT CASE WHEN qe.event_type = 'answered' THEN qe.question_id END) as questions_answered
+            FROM chat_sessions cs
+            LEFT JOIN question_events qe ON cs.id = qe.session_id AND qe.created_at >= ?
+            WHERE cs.created_at >= ?
+            GROUP BY cs.id, cs.order_set_id
+            HAVING COUNT(DISTINCT CASE WHEN qe.event_type = 'answered' THEN qe.question_id END) > 0`,
+            [sinceDate, sinceDate]
+        );
+        
+        // Get order set question counts for drop-off calculation
+        const dropoffOrderSetIds = [...new Set(dropoffData.rows.map(r => r.order_set_id).filter(Boolean))];
+        const dropoffOrderSetCounts = {};
+        
+        if (dropoffOrderSetIds.length > 0) {
+            const dbType = process.env.DB_TYPE || 'sqlite';
+            let query;
+            let params;
+            
+            if (dbType === 'postgresql') {
+                query = `SELECT id, question_order FROM order_sets WHERE id = ANY($1::text[])`;
+                params = [dropoffOrderSetIds];
+            } else {
+                const placeholders = dropoffOrderSetIds.map(() => '?').join(',');
+                query = `SELECT id, question_order FROM order_sets WHERE id IN (${placeholders})`;
+                params = dropoffOrderSetIds;
+            }
+            
+            const dropoffOrderSetsResult = await db.query(query, params);
+            dropoffOrderSetsResult.rows.forEach(row => {
+                let questionCount = 8;
+                if (row.question_order) {
+                    if (Array.isArray(row.question_order)) {
+                        questionCount = row.question_order.length;
+                    } else if (typeof row.question_order === 'string') {
+                        try {
+                            const parsed = JSON.parse(row.question_order);
+                            questionCount = Array.isArray(parsed) ? parsed.length : 8;
+                        } catch {
+                            questionCount = 8;
+                        }
+                    }
+                }
+                dropoffOrderSetCounts[row.id] = questionCount;
+            });
+        }
+        
+        // Count sessions that didn't complete (answered < total questions)
+        let totalDropoffs = 0;
+        dropoffData.rows.forEach(row => {
+            const answered = parseInt(row.questions_answered) || 0;
+            const total = dropoffOrderSetCounts[row.order_set_id] || 8;
+            if (answered > 0 && answered < total) {
+                totalDropoffs++;
+            }
+        });
+        
         return {
             totalSessions: sessions.rows[0]?.total || 0,
             avgCompletion: parseFloat(avgCompletion.toFixed(2)),
             avgTime: parseFloat(sessions.rows[0]?.avg_time || 0),
             totalEvents: events.rows[0]?.total || 0,
-            totalDropoffs: dropoffs.rows[0]?.total || 0
+            totalDropoffs: totalDropoffs
         };
     }
     
     async getOrderSetStats(days = 30) {
         const sinceDate = this.getSinceDate(days);
         
-        const result = await db.query(
+        // Get order sets with session counts
+        const orderSetsResult = await db.query(
             `SELECT 
                 os.id,
                 os.name,
                 os.description,
+                os.question_order,
                 COUNT(DISTINCT cs.id) as total_sessions,
-                AVG(cs.completion_percentage) as avg_completion,
-                COUNT(DISTINCT CASE WHEN cs.completion_percentage >= 90 THEN cs.id END) as high_completion_count,
-                COUNT(DISTINCT CASE WHEN cs.completion_percentage >= 50 AND cs.completion_percentage < 90 THEN cs.id END) as medium_completion_count,
-                COUNT(DISTINCT CASE WHEN cs.completion_percentage < 50 THEN cs.id END) as low_completion_count,
                 AVG(cs.total_time_ms) as avg_time_ms
             FROM order_sets os
             LEFT JOIN chat_sessions cs ON os.id = cs.order_set_id AND cs.created_at >= ?
             WHERE os.active = TRUE
-            GROUP BY os.id, os.name, os.description
+            GROUP BY os.id, os.name, os.description, os.question_order
             ORDER BY total_sessions DESC`,
             [sinceDate]
         );
         
-        return result.rows.map(row => ({
-            id: row.id,
-            name: row.name,
-            description: row.description,
-            totalSessions: parseInt(row.total_sessions) || 0,
-            avgCompletion: parseFloat(row.avg_completion || 0),
-            highCompletionCount: parseInt(row.high_completion_count) || 0,
-            mediumCompletionCount: parseInt(row.medium_completion_count) || 0,
-            lowCompletionCount: parseInt(row.low_completion_count) || 0,
-            avgTimeMs: parseFloat(row.avg_time_ms || 0)
-        }));
+        // Get completion data per session
+        const completionData = await db.query(
+            `SELECT 
+                cs.id as session_id,
+                cs.order_set_id,
+                COUNT(DISTINCT CASE WHEN qe.event_type = 'answered' THEN qe.question_id END) as questions_answered
+            FROM chat_sessions cs
+            LEFT JOIN question_events qe ON cs.id = qe.session_id AND qe.created_at >= ?
+            WHERE cs.created_at >= ?
+            GROUP BY cs.id, cs.order_set_id`,
+            [sinceDate, sinceDate]
+        );
+        
+        // Build order set question counts
+        const orderSetCounts = {};
+        orderSetsResult.rows.forEach(row => {
+            let questionCount = 8;
+            if (row.question_order) {
+                if (Array.isArray(row.question_order)) {
+                    questionCount = row.question_order.length;
+                } else if (typeof row.question_order === 'string') {
+                    try {
+                        const parsed = JSON.parse(row.question_order);
+                        questionCount = Array.isArray(parsed) ? parsed.length : 8;
+                    } catch {
+                        questionCount = 8;
+                    }
+                }
+            }
+            orderSetCounts[row.id] = questionCount;
+        });
+        
+        // Group completion data by order set
+        const orderSetCompletions = {};
+        completionData.rows.forEach(row => {
+            const orderSetId = row.order_set_id;
+            if (!orderSetCompletions[orderSetId]) {
+                orderSetCompletions[orderSetId] = {
+                    total: 0,
+                    high: 0,
+                    medium: 0,
+                    low: 0,
+                    completionSum: 0
+                };
+            }
+            
+            const answered = parseInt(row.questions_answered) || 0;
+            const total = orderSetCounts[orderSetId] || 8;
+            const completionPercentage = total > 0 ? (answered / total) * 100 : 0;
+            
+            orderSetCompletions[orderSetId].total++;
+            orderSetCompletions[orderSetId].completionSum += completionPercentage;
+            
+            if (completionPercentage >= 90) {
+                orderSetCompletions[orderSetId].high++;
+            } else if (completionPercentage >= 50) {
+                orderSetCompletions[orderSetId].medium++;
+            } else if (completionPercentage > 0) {
+                orderSetCompletions[orderSetId].low++;
+            }
+        });
+        
+        return orderSetsResult.rows.map(row => {
+            const completions = orderSetCompletions[row.id] || { total: 0, high: 0, medium: 0, low: 0, completionSum: 0 };
+            const avgCompletion = completions.total > 0 ? completions.completionSum / completions.total : 0;
+            
+            return {
+                id: row.id,
+                name: row.name,
+                description: row.description,
+                totalSessions: parseInt(row.total_sessions) || 0,
+                avgCompletion: parseFloat(avgCompletion.toFixed(2)),
+                highCompletionCount: completions.high,
+                mediumCompletionCount: completions.medium,
+                lowCompletionCount: completions.low,
+                avgTimeMs: parseFloat(row.avg_time_ms || 0)
+            };
+        });
     }
     
     async getDropoffStats(days = 30) {
