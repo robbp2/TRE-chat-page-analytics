@@ -15,7 +15,7 @@ class DashboardService {
             sinceDate.setHours(0, 0, 0, 0);
         } else {
             // For other periods, subtract days
-            sinceDate.setDate(sinceDate.getDate() - days);
+        sinceDate.setDate(sinceDate.getDate() - days);
         }
         return sinceDate;
     }
@@ -185,21 +185,33 @@ class DashboardService {
         const sinceDate = this.getSinceDate(days);
         
         // Get order sets with session counts
+        // Include ALL order sets (active and inactive) to account for all sessions
         const orderSetsResult = await db.query(
             `SELECT 
                 os.id,
                 os.name,
                 os.description,
                 os.question_order,
+                os.active,
                 COUNT(DISTINCT cs.id) as total_sessions,
                 AVG(cs.total_time_ms) as avg_time_ms
             FROM order_sets os
             LEFT JOIN chat_sessions cs ON os.id = cs.order_set_id AND cs.created_at >= ?
-            WHERE os.active = TRUE
-            GROUP BY os.id, os.name, os.description, os.question_order
+            GROUP BY os.id, os.name, os.description, os.question_order, os.active
+            HAVING COUNT(DISTINCT cs.id) > 0
             ORDER BY total_sessions DESC`,
             [sinceDate]
         );
+        
+        // Also get sessions without an order_set_id (unassigned sessions)
+        const unassignedSessions = await db.query(
+            `SELECT COUNT(DISTINCT cs.id) as total_sessions
+            FROM chat_sessions cs
+            WHERE cs.created_at >= ? AND (cs.order_set_id IS NULL OR cs.order_set_id = '')`,
+            [sinceDate]
+        );
+        
+        const unassignedCount = parseInt(unassignedSessions.rows[0]?.total_sessions || 0);
         
         // Get completion data per session
         const completionData = await db.query(
@@ -263,22 +275,41 @@ class DashboardService {
             }
         });
         
-        return orderSetsResult.rows.map(row => {
+        const orderSetStats = orderSetsResult.rows.map(row => {
             const completions = orderSetCompletions[row.id] || { total: 0, high: 0, medium: 0, low: 0, completionSum: 0 };
             const avgCompletion = completions.total > 0 ? completions.completionSum / completions.total : 0;
             
             return {
-                id: row.id,
-                name: row.name,
-                description: row.description,
-                totalSessions: parseInt(row.total_sessions) || 0,
+            id: row.id,
+            name: row.name,
+            description: row.description,
+            totalSessions: parseInt(row.total_sessions) || 0,
                 avgCompletion: parseFloat(avgCompletion.toFixed(2)),
                 highCompletionCount: completions.high,
                 mediumCompletionCount: completions.medium,
                 lowCompletionCount: completions.low,
-                avgTimeMs: parseFloat(row.avg_time_ms || 0)
+                avgTimeMs: parseFloat(row.avg_time_ms || 0),
+                active: row.active !== false // Include active status
             };
         });
+        
+        // Add unassigned sessions as a separate entry if any exist
+        if (unassignedCount > 0) {
+            orderSetStats.push({
+                id: 'unassigned',
+                name: 'Unassigned Sessions',
+                description: 'Sessions without an assigned order set',
+                totalSessions: unassignedCount,
+                avgCompletion: 0,
+                highCompletionCount: 0,
+                mediumCompletionCount: 0,
+                lowCompletionCount: 0,
+                avgTimeMs: 0,
+                active: false
+            });
+        }
+        
+        return orderSetStats;
     }
     
     async getDropoffStats(days = 30) {
@@ -308,13 +339,13 @@ class DashboardService {
             const sessionId = row.session_id;
             if (!sessionMap[sessionId]) {
                 sessionMap[sessionId] = {
-                    orderSetId: row.order_set_id,
+            orderSetId: row.order_set_id,
                     questions: []
                 };
             }
             if (row.question_id && row.event_type === 'answered') {
                 sessionMap[sessionId].questions.push({
-                    questionId: row.question_id,
+            questionId: row.question_id,
                     questionIndex: row.question_index
                 });
             }
