@@ -46,7 +46,7 @@ class TaxReliefChat {
         this.leadPostingConfig = {
             endpoint: window.LEAD_POST_ENDPOINT || 'https://taxreliefexperts-post.leadhoop.com/incoming/leads',
             enabled: window.LEAD_POST_ENABLED !== false, // Default to true
-            testMode: window.LEAD_POST_TEST_MODE || false, // Set to true for test posts
+            testMode: window.LEAD_POST_TEST_MODE === true, // Explicitly check for true, default to false
             mediaType: 'noncallcenter'
         };
         
@@ -1540,6 +1540,13 @@ class TaxReliefChat {
         
         // TCPA consent (hardcoded for now)
         formData.append('lead_consent[tcpa_consent]', 'Yes');
+        
+        // Log test mode for debugging
+        console.log('Lead posting config:', {
+            testMode: this.leadPostingConfig.testMode,
+            leadTestValue: this.leadPostingConfig.testMode ? 'true' : 'false',
+            windowValue: window.LEAD_POST_TEST_MODE
+        });
         
         console.log('Posting lead data:', Object.fromEntries(formData));
         
