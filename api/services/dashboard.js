@@ -185,15 +185,15 @@ class DashboardService {
         const sinceDate = this.getSinceDate(days);
         
         // Start from chat_sessions to ensure ALL sessions are accounted for
-        // LEFT JOIN to order_sets to get order set details
+        // Group by order_set_id, handling NULL values as 'unassigned'
         const sessionsByOrderSet = await db.query(
             `SELECT 
-                COALESCE(cs.order_set_id, 'unassigned') as order_set_id,
+                COALESCE(NULLIF(cs.order_set_id, ''), 'unassigned') as order_set_id,
                 COUNT(DISTINCT cs.id) as total_sessions,
                 AVG(cs.total_time_ms) as avg_time_ms
             FROM chat_sessions cs
             WHERE cs.created_at >= ?
-            GROUP BY cs.order_set_id`,
+            GROUP BY COALESCE(NULLIF(cs.order_set_id, ''), 'unassigned')`,
             [sinceDate]
         );
         
@@ -220,8 +220,8 @@ class DashboardService {
             const orderSetsResult = await db.query(query, params);
             orderSetsResult.rows.forEach(row => {
                 orderSetDetails[row.id] = {
-                    name: row.name,
-                    description: row.description,
+            name: row.name,
+            description: row.description,
                     question_order: row.question_order,
                     active: row.active !== false
                 };
@@ -229,15 +229,16 @@ class DashboardService {
         }
         
         // Get completion data per session
+        // Normalize order_set_id to match the grouping (NULL/empty -> 'unassigned')
         const completionData = await db.query(
             `SELECT 
                 cs.id as session_id,
-                cs.order_set_id,
+                COALESCE(NULLIF(cs.order_set_id, ''), 'unassigned') as order_set_id,
                 COUNT(DISTINCT CASE WHEN qe.event_type = 'answered' THEN qe.question_id END) as questions_answered
             FROM chat_sessions cs
             LEFT JOIN question_events qe ON cs.id = qe.session_id AND qe.created_at >= ?
             WHERE cs.created_at >= ?
-            GROUP BY cs.id, cs.order_set_id`,
+            GROUP BY cs.id, COALESCE(NULLIF(cs.order_set_id, ''), 'unassigned')`,
             [sinceDate, sinceDate]
         );
         
@@ -304,7 +305,7 @@ class DashboardService {
                 id: orderSetId,
                 name: details.name || (orderSetId === 'unassigned' ? 'Unassigned Sessions' : `Order Set ${orderSetId}`),
                 description: details.description || (orderSetId === 'unassigned' ? 'Sessions without an assigned order set' : null),
-                totalSessions: parseInt(row.total_sessions) || 0,
+            totalSessions: parseInt(row.total_sessions) || 0,
                 avgCompletion: parseFloat(avgCompletion.toFixed(2)),
                 highCompletionCount: completions.high,
                 mediumCompletionCount: completions.medium,
