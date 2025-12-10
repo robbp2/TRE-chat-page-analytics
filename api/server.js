@@ -26,19 +26,32 @@ const corsOptions = {
             return callback(null, true);
         }
         
+        // Default allowed origins (can be overridden via CORS_ORIGIN env var)
+        const defaultOrigins = [
+            'https://chat.taxreliefexperts.com',
+            'http://localhost:3000',
+            'http://localhost:8080',
+            'http://127.0.0.1:3000',
+            'http://127.0.0.1:8080'
+        ];
+        
         const allowedOrigins = process.env.CORS_ORIGIN === '*' 
             ? '*' 
-            : (process.env.CORS_ORIGIN || '*').split(',').map(o => o.trim());
+            : (process.env.CORS_ORIGIN || defaultOrigins.join(',')).split(',').map(o => o.trim());
         
         if (allowedOrigins === '*' || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
-            callback(null, true); // Allow all for now, can restrict later
+            // Log blocked origin for debugging
+            console.warn(`CORS: Blocked origin ${origin}`);
+            callback(new Error('Not allowed by CORS'));
         }
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization']
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204
 };
 
 app.use(cors(corsOptions));
