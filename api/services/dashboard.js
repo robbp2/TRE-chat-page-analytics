@@ -362,33 +362,53 @@ class DashboardService {
         
         Object.values(sessionMap).forEach(session => {
             const expectedOrder = orderSets[session.orderSetId] || [];
+            if (expectedOrder.length === 0) return; // Skip if no order set data
+            
             const answeredQuestions = session.questions.map(q => q.questionIndex).sort((a, b) => a - b);
             
+            // Only process sessions that answered at least one question
+            if (answeredQuestions.length === 0) return;
+            
             // Find the highest answered question index
-            if (answeredQuestions.length > 0) {
-                const maxAnsweredIndex = Math.max(...answeredQuestions);
-                const expectedNextIndex = maxAnsweredIndex + 1;
-                
-                // Check if there's an expected next question
-                if (expectedNextIndex < expectedOrder.length) {
-                    const dropoffQuestionId = expectedOrder[expectedNextIndex];
-                    const key = `${session.orderSetId || 'unknown'}_${dropoffQuestionId}_${expectedNextIndex}`;
-                    
-                    if (!dropoffMap[key]) {
-                        dropoffMap[key] = {
-                            orderSetId: session.orderSetId,
-                            questionId: dropoffQuestionId,
-                            questionIndex: expectedNextIndex,
-                            dropoffCount: 0,
-                            totalCompletion: 0
-                        };
-                    }
-                    
-                    // Calculate completion at drop-off
-                    const completionAtDropoff = (answeredQuestions.length / expectedOrder.length) * 100;
-                    dropoffMap[key].dropoffCount++;
-                    dropoffMap[key].totalCompletion += completionAtDropoff;
+            const maxAnsweredIndex = Math.max(...answeredQuestions);
+            const answeredCount = answeredQuestions.length;
+            const totalExpected = expectedOrder.length;
+            
+            // If session answered all questions, it's not a drop-off
+            if (answeredCount >= totalExpected) return;
+            
+            // Find the first unanswered question (drop-off point)
+            // question_index should correspond to array position in question_order
+            let dropoffIndex = -1;
+            let dropoffQuestionId = null;
+            
+            // Check each expected question index to find the first unanswered one
+            for (let i = 0; i < totalExpected; i++) {
+                if (!answeredQuestions.includes(i)) {
+                    dropoffIndex = i;
+                    dropoffQuestionId = expectedOrder[i];
+                    break;
                 }
+            }
+            
+            // If we found a drop-off point, record it
+            if (dropoffIndex >= 0 && dropoffQuestionId) {
+                const key = `${session.orderSetId || 'unknown'}_${dropoffQuestionId}_${dropoffIndex}`;
+                
+                if (!dropoffMap[key]) {
+                    dropoffMap[key] = {
+                        orderSetId: session.orderSetId,
+                        questionId: dropoffQuestionId,
+                        questionIndex: dropoffIndex,
+                        dropoffCount: 0,
+                        totalCompletion: 0
+                    };
+                }
+                
+                // Calculate completion at drop-off (percentage of questions answered)
+                const completionAtDropoff = (answeredCount / totalExpected) * 100;
+                dropoffMap[key].dropoffCount++;
+                dropoffMap[key].totalCompletion += completionAtDropoff;
             }
         });
         
