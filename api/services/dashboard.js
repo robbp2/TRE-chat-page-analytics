@@ -162,28 +162,129 @@ class DashboardService {
     async getDropoffStats(days = 30) {
         const sinceDate = this.getSinceDate(days);
         
-        const result = await db.query(
+        // Calculate drop-offs from question_events: sessions that started a question but didn't answer the next one
+        // This is more accurate than relying on dropoff_points table which may not have all drop-offs
+        
+        // First, get all sessions with their question progression
+        const sessionProgress = await db.query(
             `SELECT 
-                order_set_id,
-                question_id,
-                question_index,
-                COUNT(*) as dropoff_count,
-                AVG(completion_at_dropoff) as avg_completion_at_dropoff
-            FROM dropoff_points
-            WHERE created_at >= ?
-            GROUP BY order_set_id, question_id, question_index
-            ORDER BY dropoff_count DESC
-            LIMIT 50`,
+                cs.id as session_id,
+                cs.order_set_id,
+                qe.question_id,
+                qe.question_index,
+                qe.event_type
+            FROM chat_sessions cs
+            LEFT JOIN question_events qe ON cs.id = qe.session_id
+            WHERE cs.created_at >= ?
+            ORDER BY cs.id, qe.question_index, qe.created_at`,
             [sinceDate]
         );
         
-        return result.rows.map(row => ({
-            orderSetId: row.order_set_id,
-            questionId: row.question_id,
-            questionIndex: row.question_index,
-            dropoffCount: parseInt(row.dropoff_count) || 0,
-            avgCompletionAtDropoff: parseFloat(row.avg_completion_at_dropoff || 0)
+        // Group by session and find drop-off points
+        const sessionMap = {};
+        sessionProgress.rows.forEach(row => {
+            const sessionId = row.session_id;
+            if (!sessionMap[sessionId]) {
+                sessionMap[sessionId] = {
+                    orderSetId: row.order_set_id,
+                    questions: []
+                };
+            }
+            if (row.question_id && row.event_type === 'answered') {
+                sessionMap[sessionId].questions.push({
+                    questionId: row.question_id,
+                    questionIndex: row.question_index
+                });
+            }
+        });
+        
+        // Get order sets to determine expected question order
+        const orderSetIds = [...new Set(Object.values(sessionMap).map(s => s.orderSetId).filter(Boolean))];
+        const orderSets = {};
+        
+        if (orderSetIds.length > 0) {
+            const dbType = process.env.DB_TYPE || 'sqlite';
+            let query;
+            let params;
+            
+            if (dbType === 'postgresql') {
+                query = `SELECT id, question_order FROM order_sets WHERE id = ANY($1::text[])`;
+                params = [orderSetIds];
+            } else {
+                const placeholders = orderSetIds.map(() => '?').join(',');
+                query = `SELECT id, question_order FROM order_sets WHERE id IN (${placeholders})`;
+                params = orderSetIds;
+            }
+            
+            const orderSetsResult = await db.query(query, params);
+            orderSetsResult.rows.forEach(row => {
+                let questionOrder = [];
+                if (row.question_order) {
+                    if (Array.isArray(row.question_order)) {
+                        questionOrder = row.question_order;
+                    } else if (typeof row.question_order === 'string') {
+                        try {
+                            const parsed = JSON.parse(row.question_order);
+                            questionOrder = Array.isArray(parsed) ? parsed : [];
+                        } catch {
+                            questionOrder = [];
+                        }
+                    }
+                }
+                orderSets[row.id] = questionOrder;
+            });
+        }
+        
+        // Calculate drop-offs: find where a session answered question N but not N+1
+        const dropoffMap = {};
+        
+        Object.values(sessionMap).forEach(session => {
+            const expectedOrder = orderSets[session.orderSetId] || [];
+            const answeredQuestions = session.questions.map(q => q.questionIndex).sort((a, b) => a - b);
+            
+            // Find the highest answered question index
+            if (answeredQuestions.length > 0) {
+                const maxAnsweredIndex = Math.max(...answeredQuestions);
+                const expectedNextIndex = maxAnsweredIndex + 1;
+                
+                // Check if there's an expected next question
+                if (expectedNextIndex < expectedOrder.length) {
+                    const dropoffQuestionId = expectedOrder[expectedNextIndex];
+                    const key = `${session.orderSetId || 'unknown'}_${dropoffQuestionId}_${expectedNextIndex}`;
+                    
+                    if (!dropoffMap[key]) {
+                        dropoffMap[key] = {
+                            orderSetId: session.orderSetId,
+                            questionId: dropoffQuestionId,
+                            questionIndex: expectedNextIndex,
+                            dropoffCount: 0,
+                            totalCompletion: 0
+                        };
+                    }
+                    
+                    // Calculate completion at drop-off
+                    const completionAtDropoff = (answeredQuestions.length / expectedOrder.length) * 100;
+                    dropoffMap[key].dropoffCount++;
+                    dropoffMap[key].totalCompletion += completionAtDropoff;
+                }
+            }
+        });
+        
+        // Convert to array and calculate averages
+        const dropoffs = Object.values(dropoffMap).map(dropoff => ({
+            orderSetId: dropoff.orderSetId,
+            questionId: dropoff.questionId,
+            questionIndex: dropoff.questionIndex,
+            dropoffCount: dropoff.dropoffCount,
+            avgCompletionAtDropoff: dropoff.dropoffCount > 0 
+                ? dropoff.totalCompletion / dropoff.dropoffCount 
+                : 0
         }));
+        
+        // Sort by dropoff count descending
+        dropoffs.sort((a, b) => b.dropoffCount - a.dropoffCount);
+        
+        return dropoffs.slice(0, 50); // Return top 50
     }
     
     async getQuestionStats(days = 30) {
@@ -220,28 +321,75 @@ class DashboardService {
     async getCompletionRates(days = 30) {
         const sinceDate = this.getSinceDate(days);
         
-        const result = await db.query(
+        // Calculate completion rates dynamically from question_events
+        const completionData = await db.query(
             `SELECT 
-                CASE 
-                    WHEN completion_percentage >= 90 THEN 'high'
-                    WHEN completion_percentage >= 50 THEN 'medium'
-                    ELSE 'low'
-                END as completion_category,
-                COUNT(*) as count
-            FROM chat_sessions
-            WHERE created_at >= ? AND completion_percentage IS NOT NULL
-            GROUP BY completion_category`,
-            [sinceDate]
+                cs.id as session_id,
+                cs.order_set_id,
+                COUNT(DISTINCT CASE WHEN qe.event_type = 'answered' THEN qe.question_id END) as questions_answered
+            FROM chat_sessions cs
+            LEFT JOIN question_events qe ON cs.id = qe.session_id AND qe.created_at >= ?
+            WHERE cs.created_at >= ?
+            GROUP BY cs.id, cs.order_set_id`,
+            [sinceDate, sinceDate]
         );
         
+        // Get order set question counts
+        const orderSetIds = [...new Set(completionData.rows.map(r => r.order_set_id).filter(Boolean))];
+        const orderSetCounts = {};
+        
+        if (orderSetIds.length > 0) {
+            const dbType = process.env.DB_TYPE || 'sqlite';
+            let query;
+            let params;
+            
+            if (dbType === 'postgresql') {
+                query = `SELECT id, question_order FROM order_sets WHERE id = ANY($1::text[])`;
+                params = [orderSetIds];
+            } else {
+                const placeholders = orderSetIds.map(() => '?').join(',');
+                query = `SELECT id, question_order FROM order_sets WHERE id IN (${placeholders})`;
+                params = orderSetIds;
+            }
+            
+            const orderSetsResult = await db.query(query, params);
+            orderSetsResult.rows.forEach(row => {
+                let questionCount = 8; // default
+                if (row.question_order) {
+                    if (Array.isArray(row.question_order)) {
+                        questionCount = row.question_order.length;
+                    } else if (typeof row.question_order === 'string') {
+                        try {
+                            const parsed = JSON.parse(row.question_order);
+                            questionCount = Array.isArray(parsed) ? parsed.length : 8;
+                        } catch {
+                            questionCount = 8;
+                        }
+                    }
+                }
+                orderSetCounts[row.id] = questionCount;
+            });
+        }
+        
+        // Calculate completion percentages and categorize
         const categories = {
             high: 0,
             medium: 0,
             low: 0
         };
         
-        result.rows.forEach(row => {
-            categories[row.completion_category] = parseInt(row.count) || 0;
+        completionData.rows.forEach(row => {
+            const answered = parseInt(row.questions_answered) || 0;
+            const total = orderSetCounts[row.order_set_id] || 8;
+            const completionPercentage = total > 0 ? (answered / total) * 100 : 0;
+            
+            if (completionPercentage >= 90) {
+                categories.high++;
+            } else if (completionPercentage >= 50) {
+                categories.medium++;
+            } else if (completionPercentage > 0) {
+                categories.low++;
+            }
         });
         
         return categories;
