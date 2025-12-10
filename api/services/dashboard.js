@@ -26,8 +26,9 @@ class DashboardService {
         const [sessions, events, dropoffs] = await Promise.all([
             db.query(
                 `SELECT COUNT(*) as total, 
-                        AVG(completion_percentage) as avg_completion,
-                        AVG(total_time_ms) as avg_time
+                        AVG(CASE WHEN completion_percentage IS NOT NULL THEN completion_percentage END) as avg_completion,
+                        AVG(total_time_ms) as avg_time,
+                        COUNT(CASE WHEN completion_percentage IS NOT NULL THEN 1 END) as sessions_with_completion
                  FROM chat_sessions 
                  WHERE created_at >= ?`,
                 [sinceDate]
