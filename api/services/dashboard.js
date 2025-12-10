@@ -315,13 +315,6 @@ class DashboardService {
             }
         });
         
-        // Verify we're getting all sessions - debug check
-        const totalSessionsInQuery = sessionsByOrderSet.rows.reduce((sum, row) => sum + (parseInt(row.total_sessions) || 0), 0);
-        console.log(`[Order Set Stats] Found ${totalSessionsInQuery} sessions across ${sessionsByOrderSet.rows.length} order set groups`);
-        sessionsByOrderSet.rows.forEach(row => {
-            console.log(`  - ${row.order_set_id}: ${row.total_sessions} sessions`);
-        });
-        
         // Build stats array from sessionsByOrderSet
         const orderSetStats = [];
         let totalAccountedSessions = 0;
