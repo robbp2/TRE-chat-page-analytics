@@ -185,15 +185,22 @@ class DashboardService {
         const sinceDate = this.getSinceDate(days);
         
         // Start from chat_sessions to ensure ALL sessions are accounted for
-        // Group by order_set_id, handling NULL values as 'unassigned'
+        // Group by order_set_id, handling NULL/empty values as 'unassigned'
+        // Use CASE statement for better SQLite compatibility
         const sessionsByOrderSet = await db.query(
             `SELECT 
-                COALESCE(NULLIF(cs.order_set_id, ''), 'unassigned') as order_set_id,
+                CASE 
+                    WHEN cs.order_set_id IS NULL OR cs.order_set_id = '' THEN 'unassigned'
+                    ELSE cs.order_set_id
+                END as order_set_id,
                 COUNT(DISTINCT cs.id) as total_sessions,
                 AVG(cs.total_time_ms) as avg_time_ms
             FROM chat_sessions cs
             WHERE cs.created_at >= ?
-            GROUP BY COALESCE(NULLIF(cs.order_set_id, ''), 'unassigned')`,
+            GROUP BY CASE 
+                WHEN cs.order_set_id IS NULL OR cs.order_set_id = '' THEN 'unassigned'
+                ELSE cs.order_set_id
+            END`,
             [sinceDate]
         );
         
@@ -233,12 +240,18 @@ class DashboardService {
         const completionData = await db.query(
             `SELECT 
                 cs.id as session_id,
-                COALESCE(NULLIF(cs.order_set_id, ''), 'unassigned') as order_set_id,
+                CASE 
+                    WHEN cs.order_set_id IS NULL OR cs.order_set_id = '' THEN 'unassigned'
+                    ELSE cs.order_set_id
+                END as order_set_id,
                 COUNT(DISTINCT CASE WHEN qe.event_type = 'answered' THEN qe.question_id END) as questions_answered
             FROM chat_sessions cs
             LEFT JOIN question_events qe ON cs.id = qe.session_id AND qe.created_at >= ?
             WHERE cs.created_at >= ?
-            GROUP BY cs.id, COALESCE(NULLIF(cs.order_set_id, ''), 'unassigned')`,
+            GROUP BY cs.id, CASE 
+                WHEN cs.order_set_id IS NULL OR cs.order_set_id = '' THEN 'unassigned'
+                ELSE cs.order_set_id
+            END`,
             [sinceDate, sinceDate]
         );
         
