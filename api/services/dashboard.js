@@ -184,34 +184,49 @@ class DashboardService {
     async getOrderSetStats(days = 30) {
         const sinceDate = this.getSinceDate(days);
         
-        // Get order sets with session counts
-        // Include ALL order sets (active and inactive) to account for all sessions
-        const orderSetsResult = await db.query(
+        // Start from chat_sessions to ensure ALL sessions are accounted for
+        // LEFT JOIN to order_sets to get order set details
+        const sessionsByOrderSet = await db.query(
             `SELECT 
-                os.id,
-                os.name,
-                os.description,
-                os.question_order,
-                os.active,
+                COALESCE(cs.order_set_id, 'unassigned') as order_set_id,
                 COUNT(DISTINCT cs.id) as total_sessions,
                 AVG(cs.total_time_ms) as avg_time_ms
-            FROM order_sets os
-            LEFT JOIN chat_sessions cs ON os.id = cs.order_set_id AND cs.created_at >= ?
-            GROUP BY os.id, os.name, os.description, os.question_order, os.active
-            HAVING COUNT(DISTINCT cs.id) > 0
-            ORDER BY total_sessions DESC`,
-            [sinceDate]
-        );
-        
-        // Also get sessions without an order_set_id (unassigned sessions)
-        const unassignedSessions = await db.query(
-            `SELECT COUNT(DISTINCT cs.id) as total_sessions
             FROM chat_sessions cs
-            WHERE cs.created_at >= ? AND (cs.order_set_id IS NULL OR cs.order_set_id = '')`,
+            WHERE cs.created_at >= ?
+            GROUP BY cs.order_set_id`,
             [sinceDate]
         );
         
-        const unassignedCount = parseInt(unassignedSessions.rows[0]?.total_sessions || 0);
+        // Get order set details for all order_set_ids that have sessions
+        const orderSetIds = sessionsByOrderSet.rows
+            .map(r => r.order_set_id)
+            .filter(id => id !== 'unassigned' && id !== null && id !== '');
+        
+        const orderSetDetails = {};
+        if (orderSetIds.length > 0) {
+            const dbType = process.env.DB_TYPE || 'sqlite';
+            let query;
+            let params;
+            
+            if (dbType === 'postgresql') {
+                query = `SELECT id, name, description, question_order, active FROM order_sets WHERE id = ANY($1::text[])`;
+                params = [orderSetIds];
+            } else {
+                const placeholders = orderSetIds.map(() => '?').join(',');
+                query = `SELECT id, name, description, question_order, active FROM order_sets WHERE id IN (${placeholders})`;
+                params = orderSetIds;
+            }
+            
+            const orderSetsResult = await db.query(query, params);
+            orderSetsResult.rows.forEach(row => {
+                orderSetDetails[row.id] = {
+                    name: row.name,
+                    description: row.description,
+                    question_order: row.question_order,
+                    active: row.active !== false
+                };
+            });
+        }
         
         // Get completion data per session
         const completionData = await db.query(
@@ -226,29 +241,30 @@ class DashboardService {
             [sinceDate, sinceDate]
         );
         
-        // Build order set question counts
+        // Build order set question counts from order set details
         const orderSetCounts = {};
-        orderSetsResult.rows.forEach(row => {
+        Object.keys(orderSetDetails).forEach(orderSetId => {
+            const details = orderSetDetails[orderSetId];
             let questionCount = 8;
-            if (row.question_order) {
-                if (Array.isArray(row.question_order)) {
-                    questionCount = row.question_order.length;
-                } else if (typeof row.question_order === 'string') {
+            if (details.question_order) {
+                if (Array.isArray(details.question_order)) {
+                    questionCount = details.question_order.length;
+                } else if (typeof details.question_order === 'string') {
                     try {
-                        const parsed = JSON.parse(row.question_order);
+                        const parsed = JSON.parse(details.question_order);
                         questionCount = Array.isArray(parsed) ? parsed.length : 8;
                     } catch {
                         questionCount = 8;
                     }
                 }
             }
-            orderSetCounts[row.id] = questionCount;
+            orderSetCounts[orderSetId] = questionCount;
         });
         
         // Group completion data by order set
         const orderSetCompletions = {};
         completionData.rows.forEach(row => {
-            const orderSetId = row.order_set_id;
+            const orderSetId = row.order_set_id || 'unassigned';
             if (!orderSetCompletions[orderSetId]) {
                 orderSetCompletions[orderSetId] = {
                     total: 0,
@@ -275,39 +291,31 @@ class DashboardService {
             }
         });
         
-        const orderSetStats = orderSetsResult.rows.map(row => {
-            const completions = orderSetCompletions[row.id] || { total: 0, high: 0, medium: 0, low: 0, completionSum: 0 };
+        // Build stats array from sessionsByOrderSet
+        const orderSetStats = [];
+        
+        sessionsByOrderSet.rows.forEach(row => {
+            const orderSetId = row.order_set_id === 'unassigned' ? 'unassigned' : row.order_set_id;
+            const details = orderSetDetails[orderSetId] || {};
+            const completions = orderSetCompletions[orderSetId] || { total: 0, high: 0, medium: 0, low: 0, completionSum: 0 };
             const avgCompletion = completions.total > 0 ? completions.completionSum / completions.total : 0;
             
-            return {
-            id: row.id,
-            name: row.name,
-            description: row.description,
-            totalSessions: parseInt(row.total_sessions) || 0,
+            orderSetStats.push({
+                id: orderSetId,
+                name: details.name || (orderSetId === 'unassigned' ? 'Unassigned Sessions' : `Order Set ${orderSetId}`),
+                description: details.description || (orderSetId === 'unassigned' ? 'Sessions without an assigned order set' : null),
+                totalSessions: parseInt(row.total_sessions) || 0,
                 avgCompletion: parseFloat(avgCompletion.toFixed(2)),
                 highCompletionCount: completions.high,
                 mediumCompletionCount: completions.medium,
                 lowCompletionCount: completions.low,
                 avgTimeMs: parseFloat(row.avg_time_ms || 0),
-                active: row.active !== false // Include active status
-            };
+                active: details.active !== false && orderSetId !== 'unassigned'
+            });
         });
         
-        // Add unassigned sessions as a separate entry if any exist
-        if (unassignedCount > 0) {
-            orderSetStats.push({
-                id: 'unassigned',
-                name: 'Unassigned Sessions',
-                description: 'Sessions without an assigned order set',
-                totalSessions: unassignedCount,
-                avgCompletion: 0,
-                highCompletionCount: 0,
-                mediumCompletionCount: 0,
-                lowCompletionCount: 0,
-                avgTimeMs: 0,
-                active: false
-            });
-        }
+        // Sort by total sessions descending
+        orderSetStats.sort((a, b) => b.totalSessions - a.totalSessions);
         
         return orderSetStats;
     }
