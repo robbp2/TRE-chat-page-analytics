@@ -39,7 +39,7 @@ class TaxReliefChat {
         
         // URL parameters (for subid tracking)
         const urlParams = new URLSearchParams(window.location.search);
-        this.subid = urlParams.get('s1') || '';
+        this.pubtransactionid = urlParams.get('pub_transaction_id') || '';
         this.subid2 = urlParams.get('s2') || '';
         
         // Lead Posting Configuration
@@ -1528,7 +1528,7 @@ class TaxReliefChat {
         formData.append('lead[test]', this.leadPostingConfig.testMode ? 'true' : 'false');
         
         // Subid tracking from URL params
-        formData.append('subid', this.subid || '');
+        formData.append('pub_transaction_id', this.pubtransactionid || '');
         formData.append('subid2', this.subid2 || '');
         
         // TrustedForm certificate URL (populated by TrustedForm script)
