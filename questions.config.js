@@ -120,7 +120,7 @@ const ORDER_SETS = [
         order: [1, 2, 3, 4, 5, 6, 7, 8],
         description: "Traditional question flow"
     },
-    {
+    /*{
         id: "set_2",
         name: "Debt-First Approach",
         order: [2, 1, 3, 5, 6, 4, 7, 8],
@@ -131,7 +131,7 @@ const ORDER_SETS = [
         name: "Financial-First Approach",
         order: [3, 1, 2, 5, 6, 4, 7, 8],
         description: "Start with IRS notices and financial situation"
-    },
+    },*/
     {
         id: "set_4",
         name: "Asset-First Approach",
