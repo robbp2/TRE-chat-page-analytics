@@ -24,9 +24,32 @@ class AnalyticsDashboard {
         this.init();
     }
     
-    init() {
+    async init() {
         this.setupEventListeners();
+        // First check if API is reachable
+        await this.checkApiHealth();
         this.loadDashboardData();
+    }
+    
+    async checkApiHealth() {
+        try {
+            const healthUrl = `${this.apiBaseUrl}/health`;
+            console.log('Checking API health at:', healthUrl);
+            const response = await fetch(healthUrl, {
+                method: 'GET',
+                mode: 'cors'
+            });
+            
+            if (response.ok) {
+                const health = await response.json();
+                console.log('API health check passed:', health);
+            } else {
+                console.warn('API health check returned non-OK status:', response.status);
+            }
+        } catch (error) {
+            console.error('API health check failed:', error);
+            console.error('This might indicate a CORS issue or the API server is not accessible');
+        }
     }
     
     setupEventListeners() {
@@ -74,7 +97,34 @@ class AnalyticsDashboard {
             
         } catch (error) {
             console.error('Error loading dashboard data:', error);
-            this.showError(`Failed to load analytics data. Please check your API connection.`);
+            console.error('API URL:', this.dashboardApiUrl);
+            console.error('Error details:', {
+                message: error.message,
+                stack: error.stack,
+                name: error.name
+            });
+            
+            // Provide more specific error message
+            let errorMessage = 'Failed to load analytics data. Please check your API connection.';
+            let errorDetails = `API URL: ${this.dashboardApiUrl}<br>Origin: ${window.location.origin}`;
+            
+            if (error.message) {
+                if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+                    errorMessage = `Network error: Unable to connect to API server.`;
+                    errorDetails += `<br><br>This usually means:<br>• The API server is not running<br>• The API URL is incorrect<br>• There's a network connectivity issue<br>• CORS is blocking the request`;
+                } else if (error.message.includes('CORS')) {
+                    errorMessage = `CORS error: The API server is blocking requests from this origin.`;
+                    errorDetails += `<br><br>Your origin (${window.location.origin}) needs to be added to the API server's CORS allowed origins list.`;
+                } else if (error.message.includes('HTTP error')) {
+                    errorMessage = `API error: ${error.message}`;
+                    errorDetails += `<br><br>Check the browser console (F12) for more details.`;
+                } else {
+                    errorMessage = `Error: ${error.message}`;
+                    errorDetails += `<br><br>Check the browser console (F12) for more details.`;
+                }
+            }
+            
+            this.showError(errorMessage, errorDetails);
         } finally {
             this.hideLoading();
         }
@@ -84,20 +134,30 @@ class AnalyticsDashboard {
         const url = `${this.dashboardApiUrl}${endpoint}?days=${this.timeRange}`;
         
         try {
+            console.log(`Fetching ${endpoint} from: ${url}`);
             const response = await fetch(url, {
                 method: 'GET',
                 headers: { 'Content-Type': 'application/json' },
                 mode: 'cors'
             });
             
+            console.log(`Response for ${endpoint}:`, response.status, response.statusText);
+            
             if (!response.ok) {
                 const errorText = await response.text();
+                console.error(`HTTP error for ${endpoint}:`, response.status, errorText);
                 throw new Error(`HTTP error! status: ${response.status} - ${errorText}`);
             }
             
-            return await response.json();
+            const data = await response.json();
+            console.log(`Successfully fetched ${endpoint}:`, data);
+            return data;
         } catch (error) {
-            console.error(`Error fetching ${endpoint}:`, error);
+            console.error(`Error fetching ${endpoint} from ${url}:`, error);
+            // Re-throw with more context
+            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                throw new Error(`Network error: Unable to reach ${url}. ${error.message}`);
+            }
             throw error;
         }
     }
@@ -1177,15 +1237,28 @@ class AnalyticsDashboard {
         }
     }
     
-    showError(message) {
+    showError(message, details = null) {
         const container = document.querySelector('.dashboard-main');
+        let detailsHtml = '';
+        if (details) {
+            detailsHtml = `<div style="margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.05); border-radius: 4px; font-size: 0.9em; color: #666;">
+                <strong>Details:</strong><br>
+                ${details}
+            </div>`;
+        }
         container.innerHTML = `
             <div class="error-message">
                 <i class="fas fa-exclamation-circle"></i>
                 <p>${message}</p>
-                <button onclick="location.reload()" class="nav-btn" style="margin-top: 2rem;">
-                    <i class="fas fa-redo"></i> Retry
-                </button>
+                ${detailsHtml}
+                <div style="margin-top: 1.5rem;">
+                    <button onclick="location.reload()" class="nav-btn" style="margin-right: 1rem;">
+                        <i class="fas fa-redo"></i> Retry
+                    </button>
+                    <button onclick="window.open('${this.dashboardApiUrl}/stats?days=30', '_blank')" class="nav-btn" style="background: #0273c5;">
+                        <i class="fas fa-external-link-alt"></i> Test API URL
+                    </button>
+                </div>
             </div>
         `;
     }
