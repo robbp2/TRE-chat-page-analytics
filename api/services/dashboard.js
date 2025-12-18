@@ -110,11 +110,7 @@ class DashboardService {
             }
         }
         
-        // Calculate actual completion rate: sessions that answered ALL questions / total sessions
-        // This should match: (totalSessions - totalDropoffs) / totalSessions * 100
         const totalSessionsCount = parseInt(sessions.rows[0]?.total || 0);
-        const completedSessions = totalSessionsCount - totalDropoffs;
-        const actualCompletionRate = totalSessionsCount > 0 ? (completedSessions / totalSessionsCount) * 100 : 0;
         
         // Calculate drop-offs dynamically from question progression
         // Count sessions that didn't complete all questions (including those that never answered any)
@@ -177,6 +173,11 @@ class DashboardService {
                 totalDropoffs++;
             }
         });
+        
+        // Calculate actual completion rate: sessions that answered ALL questions / total sessions
+        // This should match: (totalSessions - totalDropoffs) / totalSessions * 100
+        const completedSessions = totalSessionsCount - totalDropoffs;
+        const actualCompletionRate = totalSessionsCount > 0 ? (completedSessions / totalSessionsCount) * 100 : 0;
         
         return {
             totalSessions: totalSessionsCount,
