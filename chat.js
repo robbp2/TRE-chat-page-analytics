@@ -60,6 +60,7 @@ class TaxReliefChat {
         this.isInQuestionFlow = false;
         this.questionStartTime = null;
         this.questionModeEnabled = window.QUESTION_MODE_ENABLED === true; // Default to disabled, must be explicitly enabled
+        this.firstName = null; // Store user's first name for personalization
         
         // Load question configuration
         this.loadQuestionConfig();
@@ -296,8 +297,24 @@ class TaxReliefChat {
         currentQuestion.questionStartTime = Date.now();
         this.trackQuestionStart(currentQuestion.questionId);
         
-        // Format question based on type
+        // Format question based on type and personalize if needed
         let questionText = questionData.text;
+        let useHTML = false;
+        
+        // Personalize question 4 (unfiled returns) with first name if available
+        if (currentQuestion.questionId === 4 && this.firstName) {
+            questionText = `${this.firstName}, ${questionText}`;
+        }
+        
+        // Personalize question 8 (phone number) with first name and HTML formatting
+        if (currentQuestion.questionId === 8) {
+            if (this.firstName) {
+                questionText = `Lastly, ${this.firstName}, please provide me with your <strong>phone number</strong> so we can get you in touch with one of our tax experts who will help you with your case`;
+            } else {
+                questionText = `Lastly, please provide me with your <strong>phone number</strong> so we can get you in touch with one of our tax experts who will help you with your case`;
+            }
+            useHTML = true;
+        }
         
         // Show typing indicator before adding question (if not already showing)
         if (!this.isTyping) {
@@ -305,8 +322,12 @@ class TaxReliefChat {
             setTimeout(() => {
                 this.hideTypingIndicator();
                 setTimeout(() => {
-                    // Add question to chat
-                    this.addAgentMessage(questionText);
+                    // Add question to chat (use HTML version if needed)
+                    if (useHTML) {
+                        this.addAgentMessageWithHTML(questionText);
+                    } else {
+                        this.addAgentMessage(questionText);
+                    }
                     
                     // Show quick-response buttons in messages area for question 1 (if configured)
                     if (currentQuestion.questionId === 1 && questionData.quickResponses) {
@@ -319,8 +340,12 @@ class TaxReliefChat {
             }, 1500);
         } else {
             // If typing indicator is already showing, just add the message after it hides
-            // Add question to chat
-            this.addAgentMessage(questionText);
+            // Add question to chat (use HTML version if needed)
+            if (useHTML) {
+                this.addAgentMessageWithHTML(questionText);
+            } else {
+                this.addAgentMessage(questionText);
+            }
             
             // Show quick-response buttons in messages area for question 1 (if configured)
             if (currentQuestion.questionId === 1 && questionData.quickResponses) {
@@ -788,6 +813,13 @@ class TaxReliefChat {
         currentQuestion.rawAnswer = answer; // Store original answer too
         currentQuestion.timestamp = Date.now();
         currentQuestion.timeToAnswer = currentQuestion.timestamp - questionStartTime;
+        
+        // Extract and store first name if this is question 6 (full name)
+        if (currentQuestion.questionId === 6) {
+            const fullName = categorizedAnswer.trim();
+            const nameParts = fullName.split(/\s+/);
+            this.firstName = nameParts[0] || null;
+        }
         
         // Track answer (store categorized version)
         this.trackQuestionAnswer(
