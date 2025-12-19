@@ -301,8 +301,23 @@ class TaxReliefChat {
         let questionText = questionData.text;
         let useHTML = false;
         
+        // Personalize question 1 (tax amount) with first name if available (name at end)
+        if (currentQuestion.questionId === 1 && this.firstName) {
+            questionText = questionText.replace(/\?$/, `, ${this.firstName}?`);
+        }
+        
         // Personalize question 4 (unfiled returns) with first name if available
         if (currentQuestion.questionId === 4 && this.firstName) {
+            questionText = `${this.firstName}, ${questionText}`;
+        }
+        
+        // Personalize question 5 (employment) with first name if available (name at end)
+        if (currentQuestion.questionId === 5 && this.firstName) {
+            questionText = questionText.replace(/\?$/, `, ${this.firstName}?`);
+        }
+        
+        // Personalize question 7 (email address) with first name if available
+        if (currentQuestion.questionId === 7 && this.firstName) {
             questionText = `${this.firstName}, ${questionText}`;
         }
         
