@@ -898,9 +898,31 @@ class TaxReliefChat {
         const cleaned = phone.replace(/[\s\-\(\)\.]/g, '');
         // Check if it's a valid phone number (10 digits, optionally with country code)
         const phoneRegex = /^(\+?1[-.\s]?)?\(?([0-9]{3})\)?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})$/;
-        // Also check for just digits (10 or 11 digits)
+        
+        // Extract digits only for validation
         const digitsOnly = cleaned.replace(/\D/g, '');
-        return (phoneRegex.test(phone) || (digitsOnly.length >= 10 && digitsOnly.length <= 11));
+        
+        // First check if it matches the regex pattern (handles formatted numbers)
+        if (phoneRegex.test(phone)) {
+            return true;
+        }
+        
+        // For digits-only input, validate format strictly:
+        // - Exactly 10 digits (US phone number)
+        // - Exactly 11 digits starting with "1" (US country code)
+        if (digitsOnly.length === 10) {
+            // 10 digits: must be valid US phone format (area code + exchange + number)
+            return /^[2-9]\d{2}[2-9]\d{2}\d{4}$/.test(digitsOnly);
+        } else if (digitsOnly.length === 11) {
+            // 11 digits: must start with "1" followed by valid 10-digit US phone
+            if (digitsOnly.startsWith('1')) {
+                const tenDigits = digitsOnly.substring(1);
+                return /^[2-9]\d{2}[2-9]\d{2}\d{4}$/.test(tenDigits);
+            }
+            return false;
+        }
+        
+        return false;
     }
     
     validateFullName(name) {
