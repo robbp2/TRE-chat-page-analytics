@@ -142,23 +142,19 @@ class TaxReliefChat {
             this.autoResizeTextarea();
         });
         
-        // Focus input on load (prevent scroll by focusing after scroll completes)
-        // Wait longer to ensure smooth scroll completes (smooth scrolls typically take 300-500ms)
+        // Focus input on load - let browser handle it naturally on mobile
+        // Only focus on desktop to avoid keyboard popup on mobile load
         setTimeout(() => {
-            // Store current scroll position before focusing
-            const scrollY = window.scrollY;
-            // Focus the input
-            this.chatInput.focus({ preventScroll: true });
-            // If preventScroll doesn't work, restore scroll position
-            requestAnimationFrame(() => {
-                if (Math.abs(window.scrollY - scrollY) > 5) {
-                    window.scrollTo({
-                        top: scrollY,
-                        behavior: 'auto'
-                    });
-                }
-            });
-        }, 800); // Wait for smooth scroll to complete (100ms start + ~500ms duration + buffer)
+            // Check if mobile device (screen width)
+            const isMobile = window.innerWidth <= 768;
+
+            if (!isMobile) {
+                // Desktop: focus the input with preventScroll
+                this.chatInput.focus({ preventScroll: true });
+            }
+            // Mobile: Don't auto-focus to prevent keyboard popping up on page load
+            // User will tap the input when ready, triggering keyboard naturally
+        }, 800);
         
         // Set up page unload handler to save conversation
         if (this.apiConfig.sendOnUnload) {
@@ -415,10 +411,14 @@ class TaxReliefChat {
                 this.chatInput.setAttribute('inputmode', 'text');
         }
         
-        // Focus input
+        // Focus input (but not on mobile to avoid keyboard conflicts)
         setTimeout(() => {
             if (this.chatInput.style.display !== 'none') {
-                this.chatInput.focus();
+                const isMobile = window.innerWidth <= 768;
+                if (!isMobile) {
+                    this.chatInput.focus({ preventScroll: true });
+                }
+                // On mobile, user will tap to focus when ready
             }
         }, 300);
     }
@@ -519,47 +519,12 @@ class TaxReliefChat {
         // Append to container
         if (isStateQuestion) {
             container.appendChild(wrapper);
-            
-            // Ensure scrollable container can scroll after it's added to DOM
+
+            // Let CSS handle the sizing naturally - no manual height adjustments needed
+            // Scroll to ensure the filter input is visible
             setTimeout(() => {
-                if (buttonContainer && buttonContainer.classList.contains('question-buttons--scrollable')) {
-                    // Force a reflow to ensure styles are applied
-                    buttonContainer.offsetHeight;
-                    
-                    // Force height and overflow to ensure scrolling works
-                    buttonContainer.style.height = '18rem';
-                    buttonContainer.style.maxHeight = '18rem';
-                    buttonContainer.style.overflowY = 'scroll';
-                    buttonContainer.style.overflowX = 'hidden';
-                    buttonContainer.style.flex = '0 0 auto'; // Prevent flex from overriding
-                    
-                    // Wait for layout to calculate, then verify scrolling
-                    requestAnimationFrame(() => {
-                        const contentHeight = buttonContainer.scrollHeight;
-                        const containerHeight = buttonContainer.clientHeight;
-                        
-                        // If content fits without scrolling, reduce height further
-                        if (contentHeight <= containerHeight && contentHeight > 0) {
-                            buttonContainer.style.height = '12rem';
-                            buttonContainer.style.maxHeight = '12rem';
-                        }
-                        
-                        // Verify scrolling is working
-                        if (contentHeight > containerHeight) {
-                            console.log('State buttons container is scrollable:', {
-                                contentHeight,
-                                containerHeight,
-                                canScroll: contentHeight > containerHeight,
-                                scrollTop: buttonContainer.scrollTop,
-                                scrollHeight: buttonContainer.scrollHeight
-                            });
-                        } else {
-                            console.warn('State buttons container may not be scrollable:', {
-                                contentHeight,
-                                containerHeight
-                            });
-                        }
-                    });
+                if (filterInput) {
+                    filterInput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
                 }
             }, 100);
         } else {
@@ -685,30 +650,29 @@ class TaxReliefChat {
         
         // Add to messages container
         this.messagesContainer.appendChild(quickResponseContainer);
-        
-        // Scroll to show buttons fully (with extra offset for mobile)
+
+        // Scroll to show buttons fully using scrollIntoView for reliability
         setTimeout(() => {
-            const container = this.messagesContainer;
-            // Scroll to bottom with extra padding to ensure buttons are fully visible
-            const scrollHeight = container.scrollHeight;
-            const clientHeight = container.clientHeight;
-            const extraPadding = 150; // Extra padding to ensure buttons aren't cut off
-            
-            container.scrollTop = scrollHeight - clientHeight + extraPadding;
-            
-            // If that doesn't work, try scrolling the button into view
-            requestAnimationFrame(() => {
-                const buttonsRect = quickResponseContainer.getBoundingClientRect();
-                const containerRect = container.getBoundingClientRect();
-                
-                // Check if buttons are cut off at bottom
-                if (buttonsRect.bottom > containerRect.bottom - 50) {
-                    // Scroll more to show buttons fully
-                    const additionalScroll = buttonsRect.bottom - containerRect.bottom + 100;
-                    container.scrollTop = container.scrollTop + additionalScroll;
-                }
+            // Use scrollIntoView with smooth behavior to ensure buttons are visible
+            quickResponseContainer.scrollIntoView({
+                behavior: 'smooth',
+                block: 'end', // Align to bottom of scroll container
+                inline: 'nearest'
             });
-        }, 150);
+
+            // Double-check after animation completes
+            setTimeout(() => {
+                // Ensure we're scrolled enough to see all buttons
+                const container = this.messagesContainer;
+                const containerBottom = container.scrollTop + container.clientHeight;
+                const buttonsBottom = quickResponseContainer.offsetTop + quickResponseContainer.offsetHeight;
+
+                // If buttons extend beyond visible area, scroll a bit more
+                if (buttonsBottom > containerBottom - 20) {
+                    container.scrollTop += (buttonsBottom - containerBottom + 40);
+                }
+            }, 400); // Wait for smooth scroll animation
+        }, 100);
         
         // Add event listeners
         quickResponseContainer.querySelectorAll('.quick-response-btn').forEach(btn => {
@@ -1470,9 +1434,21 @@ class TaxReliefChat {
     }
     
     scrollToBottom() {
-        setTimeout(() => {
-            this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
-        }, 100);
+        // Use requestAnimationFrame for better timing with layout calculations
+        requestAnimationFrame(() => {
+            // Ensure layout is complete before scrolling
+            requestAnimationFrame(() => {
+                this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+
+                // Verify scroll worked - if not, try again after longer delay
+                setTimeout(() => {
+                    const isAtBottom = this.messagesContainer.scrollHeight - this.messagesContainer.scrollTop <= this.messagesContainer.clientHeight + 50;
+                    if (!isAtBottom) {
+                        this.messagesContainer.scrollTop = this.messagesContainer.scrollHeight;
+                    }
+                }, 150);
+            });
+        });
     }
     
     getCurrentTime() {

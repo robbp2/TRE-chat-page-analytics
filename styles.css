@@ -140,47 +140,49 @@ p {
     .container {
         padding: 0;
     }
-    
+
     .chat-hero .container {
         padding: 0 0.5rem;
     }
-    
+
     .chat-hero__text {
         padding: 0 0.5rem;
     }
-    
+
     /* Minimize hero section on mobile to maximize chat space */
     .chat-hero {
         padding: 0.25rem 0;
     }
-    
+
     .chat-hero__content {
         gap: 0.25rem;
         padding: 0;
     }
-    
-    /* Make chat window fill nearly all available viewport height on mobile */
-    /* Only account for header (~4rem) + minimal hero text (~2rem) = ~6rem */
+
+    /* Make chat window fill available viewport height on mobile */
+    /* Use flexible sizing that adapts to keyboard showing/hiding */
     .chat-window {
         width: 100%;
         margin: 0;
-        height: calc(100vh - 6rem) !important;
-        max-height: calc(100vh - 6rem) !important;
-        min-height: calc(100vh - 8rem);
+        /* Use flexible height that works with mobile keyboards */
+        height: auto !important;
+        max-height: none !important;
+        min-height: 500px;
+        /* Flex sizing to fill available space */
+        flex: 1 1 auto;
         display: flex;
         flex-direction: column;
         overflow: hidden;
         position: relative;
         border-radius: 0.5rem;
     }
-    
-    /* Use dvh (dynamic viewport height) for better mobile browser support */
-    @supports (height: 100dvh) {
-        .chat-window {
-            height: calc(100dvh - 5.5rem) !important;
-            max-height: calc(100dvh - 5.5rem) !important;
-            min-height: calc(100dvh - 7rem);
-        }
+
+    /* Make the hero content use flex to give chat window available space */
+    .chat-hero__content {
+        min-height: calc(100vh - 8rem);
+        min-height: calc(100svh - 8rem); /* Small viewport height - excludes browser chrome */
+        display: flex;
+        flex-direction: column;
     }
     
     /* Minimize hero text on mobile - just a small title */
@@ -210,17 +212,30 @@ p {
         max-height: 100%;
         overflow-y: auto;
         overflow-x: hidden;
+        /* Prevent scroll chaining - stops nested scroll conflicts */
+        overscroll-behavior: contain;
+        /* Modern smooth scrolling */
         -webkit-overflow-scrolling: touch;
         padding: 1rem;
         /* Add extra padding bottom to prevent buttons from being cut off */
-        padding-bottom: 4rem;
+        padding-bottom: 8rem;
     }
     
     /* Ensure buttons and quick responses aren't clipped */
     .quick-response-buttons,
     .question-buttons-wrapper {
-        margin-bottom: 2rem;
-        padding-bottom: 1rem;
+        margin-bottom: 3rem;
+        padding-bottom: 2rem;
+    }
+
+    /* Additional padding for the last quick response button to ensure it's not cut off */
+    .quick-response-buttons .quick-response-btn:last-child {
+        margin-bottom: 1rem;
+    }
+
+    /* Ensure question buttons wrapper has enough space at bottom */
+    .question-buttons {
+        padding-bottom: 2rem;
     }
     
     /* Ensure input area is fixed height and doesn't shrink */
@@ -523,6 +538,8 @@ p {
     flex: 1 1 auto;
     overflow-y: auto;
     overflow-x: hidden;
+    /* Prevent scroll chaining on nested scrollable elements */
+    overscroll-behavior: contain;
     padding: 1.5rem;
     display: flex;
     flex-direction: column;
@@ -793,55 +810,40 @@ p {
         opacity: 1;
     }
     
-    /* Increase scrollable area height for state buttons */
-    /* Make the wrapper take available space and allow scrolling */
+    /* Make the wrapper take available space and allow natural scrolling */
     .question-buttons-wrapper {
         display: flex;
         flex-direction: column;
         width: 100%;
+        gap: 0.8rem;
+        max-height: 50vh; /* Use viewport-based max height for flexibility */
         min-height: 0;
-        max-height: calc(100vh - 12rem); /* Constrain wrapper height */
     }
-    
-    /* Make the scrollable container have a fixed max-height to enable scrolling */
-    /* Use a smaller fixed height that's definitely less than total content (50 states) */
-    /* Each button is ~3-4rem tall, so 18rem shows ~4-6 buttons, leaving ~44 buttons to scroll */
+
+    /* Make the scrollable container use flexible height that adapts */
     .question-buttons-wrapper .question-buttons--scrollable {
-        height: 18rem !important; /* Smaller fixed height - will definitely require scrolling */
-        max-height: 18rem !important;
-        min-height: 12rem;
-        overflow-y: scroll !important; /* Use 'scroll' instead of 'auto' to always show scrollbar */
+        /* Remove fixed heights - use flexible sizing instead */
+        height: auto !important;
+        max-height: 40vh !important; /* Flexible max height based on viewport */
+        min-height: 250px;
+        overflow-y: auto !important;
         overflow-x: hidden !important;
-        -webkit-overflow-scrolling: touch;
+        /* Modern smooth scrolling (works on all modern browsers) */
+        overflow-anchor: none;
+        overscroll-behavior: contain;
         /* Ensure scrollbar is visible */
         scrollbar-width: thin;
-        position: relative;
-        /* Add extra padding to bottom of scrollable area to ensure last buttons are fully visible */
-        padding-bottom: 5rem;
-        /* Ensure it can scroll */
-        will-change: scroll-position;
-        /* Force hardware acceleration for smooth scrolling */
-        transform: translateZ(0);
-        /* Ensure content can exceed container */
-        box-sizing: border-box;
-        /* Prevent flex from overriding height - must override base flex: 1 1 auto */
-        flex: 0 0 18rem !important; /* Fixed size, don't grow or shrink */
+        /* Add padding to bottom to ensure last buttons are fully visible */
+        padding-bottom: 2rem;
+        /* Natural flex sizing */
+        flex: 1 1 auto;
+        /* Smooth momentum scrolling on iOS */
+        -webkit-overflow-scrolling: touch;
     }
-    
+
     /* Ensure all state buttons are accessible by scrolling */
     .question-buttons-wrapper .question-buttons--scrollable .question-btn {
         flex-shrink: 0; /* Prevent buttons from shrinking */
-    }
-    
-    /* Ensure state buttons wrapper doesn't get cut off by messages container */
-    .question-buttons-wrapper {
-        position: relative;
-        z-index: 5;
-    }
-    
-    /* Override base flex styles for scrollable container on mobile */
-    .question-buttons-wrapper .question-buttons--scrollable {
-        flex: 0 0 18rem !important; /* Force fixed height, override base flex: 1 1 auto */
     }
 }
 
