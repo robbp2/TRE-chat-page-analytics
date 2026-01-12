@@ -320,10 +320,38 @@ class TaxReliefChat {
         // Personalize question 8 (phone number) with first name and HTML formatting
         if (currentQuestion.questionId === 8) {
             if (this.firstName) {
-                questionText = `Lastly, ${this.firstName}, please provide me with your <strong>phone number</strong> so we can get you in touch with one of our tax experts who will help you with your case`;
+                questionText = `${this.firstName}, please provide me with your <strong>phone number</strong> so we can get you in touch with one of our tax experts who will help you with your case`;
             } else {
-                questionText = `Lastly, please provide me with your <strong>phone number</strong> so we can get you in touch with one of our tax experts who will help you with your case`;
+                questionText = `Please provide me with your <strong>phone number</strong> so we can get you in touch with one of our tax experts who will help you with your case`;
             }
+            useHTML = true;
+        }
+
+        // Personalize question 9 (TCPA consent) with full details
+        if (currentQuestion.questionId === 9 && questionData.tcpaLanguage) {
+            // Get collected data from previous answers
+            const fullName = this.questionAnswers[6] || '';
+            const phone = this.questionAnswers[8] || '';
+
+            // Parse name
+            const nameParts = fullName.trim().split(/\s+/);
+            const firstName = nameParts[0] || 'User';
+            const lastName = nameParts.slice(1).join(' ') || '';
+
+            // Format phone number for display
+            const formatPhone = (phoneNum) => {
+                const cleaned = phoneNum.replace(/\D/g, '');
+                if (cleaned.length === 10) {
+                    return `${cleaned.slice(0,3)}-${cleaned.slice(3,6)}-${cleaned.slice(6)}`;
+                } else if (cleaned.length === 11 && cleaned[0] === '1') {
+                    return `${cleaned.slice(1,4)}-${cleaned.slice(4,7)}-${cleaned.slice(7)}`;
+                }
+                return phoneNum;
+            };
+            const formattedPhone = formatPhone(phone);
+
+            // Build TCPA language with personalization
+            questionText = `${questionData.text}<div class="tcpa-consent-text">By clicking "AGREE & SUBMIT" I represent that I <strong>${firstName} ${lastName}</strong> am the line subscriber or primary user of the phone number above at <strong>${formattedPhone}</strong> (including my wireless number if provided) and provide my express consent authorizing Tax Relief Experts to contact me by telephone (including text messages), delivered via automated technology to the phone number above regarding Tax Relief products, services and/or offerings even if I am on a Federal, State or Do-Not-Call registry. I further represent that I am a U.S. Resident over the age of 18, understand and agree to the Privacy Policy, Terms & Conditions and California Privacy Notice and agree to receive email promotions from Tax Relief Experts and our marketing partners. I understand and agree that this site uses third-party visit recording technology, including, but not limited to, Trusted Form and Jornaya. I understand that my consent is not required to continue with my application or is a condition to search for Tax Relief products, services and offerings. I understand I can revoke consent at any time. For SMS messages campaigns Msg. & Data Rates May Apply. Reply HELP for help. Reply STOP to cancel.</div>`;
             useHTML = true;
         }
         
@@ -424,27 +452,43 @@ class TaxReliefChat {
     }
     
     showYesNoButtons(container) {
+        // Check if this is TCPA question (question 9)
+        const currentQuestion = this.questionFlow[this.currentQuestionIndex];
+        const isTCPA = currentQuestion && currentQuestion.questionId === 9;
+
         // Create yes/no buttons
         const buttonContainer = document.createElement('div');
         buttonContainer.className = 'question-buttons question-buttons--yesno';
-        
-        buttonContainer.innerHTML = `
-            <button class="question-btn question-btn--yes" data-answer="yes">
-                <i class="fas fa-check"></i> Yes
-            </button>
-            <button class="question-btn question-btn--no" data-answer="no">
-                <i class="fas fa-times"></i> No
-            </button>
-        `;
-        
+
+        // Use different labels for TCPA
+        if (isTCPA) {
+            buttonContainer.innerHTML = `
+                <button class="question-btn question-btn--yes" data-answer="yes">
+                    <i class="fas fa-check"></i> AGREE & SUBMIT
+                </button>
+                <button class="question-btn question-btn--no" data-answer="no">
+                    <i class="fas fa-times"></i> DECLINE
+                </button>
+            `;
+        } else {
+            buttonContainer.innerHTML = `
+                <button class="question-btn question-btn--yes" data-answer="yes">
+                    <i class="fas fa-check"></i> Yes
+                </button>
+                <button class="question-btn question-btn--no" data-answer="no">
+                    <i class="fas fa-times"></i> No
+                </button>
+            `;
+        }
+
         // Hide text input temporarily
         const input = container.querySelector('.chat-input');
         if (input) {
             input.style.display = 'none';
         }
-        
+
         container.appendChild(buttonContainer);
-        
+
         // Add event listeners
         buttonContainer.querySelectorAll('.question-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
@@ -792,12 +836,40 @@ class TaxReliefChat {
         currentQuestion.rawAnswer = answer; // Store original answer too
         currentQuestion.timestamp = Date.now();
         currentQuestion.timeToAnswer = currentQuestion.timestamp - questionStartTime;
-        
+
+        // Store answer in questionAnswers object for easy access
+        this.questionAnswers[currentQuestion.questionId] = categorizedAnswer;
+
         // Extract and store first name if this is question 6 (full name)
         if (currentQuestion.questionId === 6) {
             const fullName = categorizedAnswer.trim();
             const nameParts = fullName.split(/\s+/);
             this.firstName = nameParts[0] || null;
+        }
+
+        // Handle TCPA rejection (question 9) - if user says "no", show error and re-prompt
+        if (currentQuestion.questionId === 9 && questionData.tcpaLanguage) {
+            const normalizedAnswer = categorizedAnswer.toLowerCase().trim();
+            if (normalizedAnswer === 'no' || normalizedAnswer === 'n' || normalizedAnswer === 'false') {
+                // Show error message and re-prompt
+                setTimeout(() => {
+                    this.showTypingIndicator();
+                    setTimeout(() => {
+                        this.hideTypingIndicator();
+                        setTimeout(() => {
+                            this.addAgentMessage(questionData.errorMessage || "We're unable to assist you without your consent.");
+                            // Re-ask the TCPA question
+                            setTimeout(() => {
+                                // Mark as not answered so it asks again
+                                currentQuestion.answered = false;
+                                delete this.questionAnswers[currentQuestion.questionId];
+                                this.askNextQuestion();
+                            }, 1000);
+                        }, 300);
+                    }, 1500);
+                }, 500);
+                return; // Don't proceed further
+            }
         }
         
         // Track answer (store categorized version)

@@ -682,6 +682,33 @@ p {
     color: var(--primary-blue-hover);
 }
 
+/* TCPA Consent Text Styling */
+.tcpa-consent-text {
+    font-size: 0.7rem;
+    line-height: 1.4;
+    margin-top: 1rem;
+    padding: 0.8rem;
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 0.5rem;
+    border-left: 3px solid var(--primary-blue);
+    color: var(--text-secondary);
+}
+
+.tcpa-consent-text strong {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+/* Mobile TCPA text */
+@media (max-width: 549px) {
+    .tcpa-consent-text {
+        font-size: 0.65rem;
+        line-height: 1.3;
+        padding: 0.6rem;
+        margin-top: 0.8rem;
+    }
+}
+
 /* Quick Response Buttons (in messages area) */
 .quick-response-buttons {
     display: flex;

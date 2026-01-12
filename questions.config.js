@@ -109,6 +109,16 @@ const QUESTIONS = {
         type: "text",
         apiField: "phone1", // Maps to lead[phone1]
         required: true
+    },
+    9: {
+        id: 9,
+        text: "In order to assist you with your tax relief case, we need your consent to contact you.",
+        type: "yesno",
+        apiField: "tcpaConsent", // TCPA consent tracking
+        required: true,
+        // TCPA language will be added dynamically in chat.js with personalized data
+        tcpaLanguage: true,
+        errorMessage: "We're unable to assist you without your consent. Our team needs your permission to contact you about your tax relief options."
     }
 };
 
@@ -117,31 +127,31 @@ const ORDER_SETS = [
     {
         id: "set_1",
         name: "Standard Flow",
-        order: [1, 2, 3, 4, 5, 6, 7, 8],
-        description: "Traditional question flow"
+        order: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+        description: "Traditional question flow with TCPA consent"
     },
     /*{
         id: "set_2",
         name: "Debt-First Approach",
-        order: [2, 1, 3, 5, 6, 4, 7, 8],
+        order: [2, 1, 3, 5, 6, 4, 7, 8, 9],
         description: "Focus on debt duration first"
     },
     {
         id: "set_3",
         name: "Financial-First Approach",
-        order: [3, 1, 2, 5, 6, 4, 7, 8],
+        order: [3, 1, 2, 5, 6, 4, 7, 8, 9],
         description: "Start with IRS notices and financial situation"
     },*/
     {
         id: "set_4",
         name: "Asset-First Approach",
-        order: [6, 4, 7, 2, 1, 5, 3, 8],
-        description: "Prioritize asset and employment questions"
+        order: [6, 4, 7, 2, 1, 5, 3, 8, 9],
+        description: "Prioritize asset and employment questions with TCPA consent"
     }/*,
     {
         id: "set_5",
         name: "Contact Info First (just for testing)",
-        order: [7, 8, 6, 4, 2, 1, 5, 3],
+        order: [7, 8, 6, 4, 2, 1, 5, 3, 9],
         description: "Prioritize contact information first"
     }*/
 ];
