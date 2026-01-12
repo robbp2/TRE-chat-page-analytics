@@ -493,6 +493,12 @@ class TaxReliefChat {
         buttonContainer.querySelectorAll('.question-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const answer = e.target.closest('.question-btn').dataset.answer;
+                // Remove the button container after clicking
+                buttonContainer.remove();
+                // Restore text input
+                if (input) {
+                    input.style.display = 'block';
+                }
                 this.handleQuestionAnswer(answer);
             });
         });
